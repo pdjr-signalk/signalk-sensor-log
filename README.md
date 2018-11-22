@@ -2,31 +2,21 @@
 
 Log time series sensor data.
 
-__signalk-sensor-log__ logs sensor readings from the host Signal K Node server
-as time-series data in a round-robin database.
-Logged data can be collated as a _display group_  consisting of charts which
-depict the selected stored readings over a range of historic timescales.
+__signalk-sensor-log__ logs user-selected sensor readings from the host Signal
+K Node server as time-series data in a round-robin database.
+Logged data can be rendered over a range of timescales as a collection of charts
+termed a _display group_.
+The plugin includes a simple web application can be used to display the generated
+charts.
 
 Some examples of the type of data logging that can be undertaken are illustrated
 below. 
 
 __Example 1__  
-_currentLevel_ data value from the system's tank data sensore can be logged to
-show changes in tank levels over time.
-
-![Webapp screenshot](readme/screenshot.png)
-
-__Example 2__  
-Power levels reported from the host vessel's inverter/charger can be logged to
-show changes in electrical power consumption and use.
+Power levels reported from the host vessel's inverter/charger show changes in
+electrical power consumption and use.
 
 ![Webapp screenshot](readme/power.png)
-
-__Example 3__
-Readings from the echo sounder are plotted to illustrate changes in the depth
-of the sea-bed over time.
-
-![Webapp_screenshot](readme/screenshot.png)
 
 ## System requirements
 
