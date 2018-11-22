@@ -14,7 +14,7 @@ var index = 0;
 function init() {
     if (((config = JSON.parse(loadFile(CONFIG_FILE))) != null) && ((manifest = JSON.parse(loadFile(MANIFEST_FILE))) != null)) {
         var urlParams = new URLSearchParams(window.location.search);
-        var group = (urlParams.has('group'))?urlParams.get('group'):manifest[0];
+        var group = (urlParams.has('group'))?urlParams.get('group'):manifest[0]['id'];
         var chart = (urlParams.has('chart'))?urlParams.get('chart'):config.images[0]['id'];
         document.getElementsByTagName('h1')[0].innerHTML = config.title;
         generateGroupMenu();
@@ -28,8 +28,8 @@ function init() {
 function generateGroupMenu() {
     var content = "<ul>";
     manifest.forEach(function(group) {
-        content += "<li id=\"" + group + "-menuitem\" class=\"menuitem\">";
-        content += "<a href=\"javascript: changeGroup('" + group + "','" + config.images[0]['id'] + "');\">" + group + "</a>";
+        content += "<li id=\"" + group['id'] + "-menuitem\" class=\"menuitem\">";
+        content += "<a href=\"?group=" + group['id'] + "&chart=" + config.images[0]['id'] + "\">" + group['id'] + "</a>";
         content += "</li>";
     });
     content += "</ul>";
@@ -39,6 +39,7 @@ function generateGroupMenu() {
 function changeGroup(group, chart) {
     if ((selected = document.getElementsByClassName('selectedmenuitem')).length > 0) selected[0].classList.remove('selectedmenuitem');
     if ((selected = document.getElementById(group + "-menuitem")) != null) selected.classList.add('selectedmenuitem');
+    document.getElementsByTagName('h1')[0].innerHTML = manifest.reduce((a,g) => ((g['id'] == group)?g['title']:a),config.title);
     generateThumbnails(group);
     goto(group, chart);
 }

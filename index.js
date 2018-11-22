@@ -42,7 +42,7 @@ const DEFAULT_CONSOLEREPORTING = false;
 const DEFAULT_DATAMAX = 10000;
 const DEFAULT_DISPLAYCOLOR = "#000000";
 
-const DEFAULT_SENSORDISPLAYNAME = "";
+const DEFAULT_SENSORNAME = "";
 const DEFAULT_SENSORDISPLAYCOLOR = "#000000";
 const DEFAULT_SENSORDISPLAYGROUPS = "ALL";
 const DEFAULT_SENSORMULTIPLIER = 1;
@@ -117,10 +117,10 @@ module.exports = function(app) {
 								type: "string",
 								default: ""
 							},
-							displayname: {
+							name: {
 								title: "Sensor name",
 								type: "string",
-								default: DEFAULT_SENSORDISPLAYNAME
+								default: DEFAULT_SENSORNAME
 							},
 							displaycolor: {
 								title: "Color to use when rendering this sensor",
@@ -354,7 +354,7 @@ module.exports = function(app) {
                                 var dgsensors = options.sensors.filter(s => (s['displaygroups'].includes(displaygroup['id'])));
                                 var properties = {
 	                                "displaycolors": dgsensors.map(s => s['displaycolor']),
-	                                "displaynames": dgsensors.map(s => s['displayname']),
+	                                "displaynames": dgsensors.map(s => s['name']),
 	                                "period": period,
 	                                "title": displaygroup['title'] + " (over past " + period + ")",
 	                                "ylabel": displaygroup['ylabel'],
@@ -376,7 +376,7 @@ module.exports = function(app) {
 	                    });
                     });
                     try {
-                        writeManifest(CHARTDIRECTORY + CHARTMANIFEST, options.displaygroups.map(g => g['id']));
+                        writeManifest(CHARTDIRECTORY + CHARTMANIFEST, options.displaygroups);
                     } catch(err) {
                         logWW("Error creating chart manifest");
                     }    
@@ -395,8 +395,8 @@ module.exports = function(app) {
 		unsubscribes = [];
 	}
 
-    function writeManifest(filename, entries) {
-        fs.writeFile(filename, JSON.stringify(entries), function(err) {
+    function writeManifest(filename, displaygroups) {
+        fs.writeFile(filename, JSON.stringify(displaygroups.map(dg => ({ id: dg['id'], title: dg['title'] }))), function(err) {
             if (err) throw("FILEWRT: " + err);
         });
     }
@@ -407,7 +407,7 @@ module.exports = function(app) {
             .filter(path => (regexp.test(path)))
 		    .map(path => ({ 
                 "path": path,
-                "displayname": makeIdFromPath(path),
+                "name": makeIdFromPath(path),
                 "displaycolor": kellycolors.getNextColor(),
 		        "displaygroups": DEFAULT_SENSORDISPLAYGROUPS,
                 "multiplier": DEFAULT_SENSORMULTIPLIER,
