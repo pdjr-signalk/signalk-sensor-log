@@ -183,13 +183,13 @@ Specifies whether or not the plugin should issue a terse summary of the data
 values being written to the database each time an update occurs.
 The default behaviour is not to report in this way.
 
-#### Sensors
+### Sensors
 
-##### Sensor configuration options  
+![Sensors](readme/sensorconfig.png)
 
-![Sensor configuration options](readme/sensorconfig.png)
-
-Each sensor is defined by the following options.
+The _Sensors_ configuration consists of a list of sensors identified by the
+plugin.
+Each sensor in the list is configured by the following set of options.
 
 __Sensor path__  
 Shows the Signal K data path identifying this sensor.
@@ -230,20 +230,14 @@ whether or not the sensor data is rendered in this way on an output chart.
 You can uncheck this option  to ensure that a sensor value which is
 inherently discrete cannot be rendered in a misleading way.
 
-#### Display groups
+### Display groups
 
 ![Display groups](readme/displaygroup.png)
 
-This section consists of a list of display group entries, each of which defines
-how a display group will be rendered in chart output.
-
-The plugin creates the list dynamically from the display group names supplied
-in each sensor configuration and you can create or destroy display groups by
-editing the display group names in the sensor list configuration.
-
-##### Display group configuration options
-    
-Each display group is defined by the following options.
+This _Display groups_ configuration consists of a list of display group entries
+creates dynamically from the display group names supplied in the _Sensors_
+configuration.
+Each display group in the list is configured by the following options.
 
 __Display group id__  
 Specifies a unique identifier for this display group.
