@@ -20,7 +20,7 @@ __Example 2__
 Power levels reported from the host vessel's inverter/charger can be logged to
 show changes in electrical power consumption and use.
 
-![Webapp screenshot](readme/screenshot.png)
+![Webapp screenshot](readme/power.png)
 
 __Example 3__
 Readings from the echo sounder are plotted to illustrate changes in the depth
