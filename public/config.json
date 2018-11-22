@@ -1,0 +1,10 @@
+{
+    "title": "Sensor log",
+    "images": [
+        { "id": "hour", "filename": "hour.svg", "comment": "Sensor data over past hour" },
+        { "id": "day", "filename": "day.svg", "comment": "Sensor data over past day" },
+        { "id": "week", "filename": "week.svg", "comment": "Sensor data over past week" },
+        { "id": "month", "filename": "month.svg", "comment": "Sensor data over past month" },
+        { "id": "year", "filename": "year.svg", "comment": "Sensor data over past year" }
+    ]
+}
