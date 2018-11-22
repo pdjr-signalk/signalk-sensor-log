@@ -118,22 +118,22 @@ module.exports = function(app) {
 								default: ""
 							},
 							displayname: {
-								title: "Display name",
+								title: "Sensor name",
 								type: "string",
 								default: DEFAULT_SENSORDISPLAYNAME
 							},
 							displaycolor: {
-								title: "Default color to use for chart rendering",
+								title: "Color to use when rendering this sensor",
 								type: "string",
 								default: DEFAULT_SENSORDISPLAYCOLOR
 							},
 							displaygroups: {
-								title: "Display groups",
+								title: "Display groups which include this sensor",
 								type: "string",
 								default: DEFAULT_SENSORDISPLAYGROUPS
 							},
                             multiplier: {
-                                title: "Multiplier (for example, use 100 to convert ratios to percentages)",
+                                title: "Multiplier for sensor values",
                                 type: "number",
                                 default: DEFAULT_SENSORMULTIPLIER
                             },
