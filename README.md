@@ -183,7 +183,9 @@ Specifies whether or not the plugin should issue a terse summary of the data
 values being written to the database each time an update occurs.
 The default behaviour is not to report in this way.
 
-#### Sensor configuration options  
+#### Sensors
+
+##### Sensor configuration options  
 
 ![Sensor configuration options](readme/sensorconfig.png)
 
@@ -228,21 +230,49 @@ whether or not the sensor data is rendered in this way on an output chart.
 You can uncheck this option  to ensure that a sensor value which is
 inherently discrete cannot be rendered in a misleading way.
 
-#### Display group configuration options
-    
-![Display group configuration options](readme/displaygroup.png)
+#### Display groups
 
+![Display groups](readme/displaygroup.png)
+
+This section consists of a list of display group entries, each of which defines
+how a display group will be rendered in chart output.
+
+The plugin creates the list dynamically from the display group names supplied
+in each sensor configuration and you can create or destroy display groups by
+editing the display group names in the sensor list configuration.
+
+##### Display group configuration options
+    
 Each display group is defined by the following options.
 
 __Display group id__  
+Specifies a unique identifier for this display group.
+This value is created by the plugin from a display group identifier specified
+in the _Sensors_ list and cannot be changed.
 
 __Chart title__  
+Specifies a title to be used for this display group's webpage and in each of
+the generated charts.
+Default value is something innocuous.
+You will probably want to change this.
 
 __Chart y-axis label__  
+Specifies the text to be used as a label on the vertical axis of charts in this
+display group.
+Default value is something innocuous.
+You will probably want to change this to something that describes at least the
+units of the displayed data.
 
 __Maximum y-axis value__  
+Specifies the maximum value that can be displayed on the the y-axis.
+The default value of 0 (zero) indicates that the axis should be automatically
+scaled in response to the maximum value in the displayed data.
 
 __Chart options --> Stack graph data__  
+When checked, selects a stacked-area chart rather than a line graph.
+Defaults to unchecked.
+All data values included in the display group will be stacked except for those which
+are marked in the _Sensors_ configuration as not stackable.
 
 ## Notifications, warnings and errors
 
