@@ -226,7 +226,10 @@ whether or not the sensor data is rendered in this way on an output chart.
 You can uncheck this option  to ensure that a sensor value which is
 inherently discrete cannot be rendered in a misleading way.
 
+#### Display group configuration options
     
+![Display group configuration options](readme/displaygroup.png)
+
 ## Notifications, warnings and errors
 
 ## Version history
