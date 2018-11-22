@@ -218,15 +218,15 @@ then set the sensor multiplier to 100.
 
 __Sensor options__  
 
-    __Stackable__  
-    Specifies whether or not the data from this sensor could reasonably be
-    stacked with other values in a chart.
-    The default value is true.
-    Note that setting this option only specifies whether or not the associated
-    data can be stacked, a _Display group_ option (see below) will determine
-    whether or not the sensor data is rendered in this way on an output chart.
-    You can uncheck this option  to ensure that a sensor value which is
-    inherently discrete cannot be rendered in a misleading way.
+  __Stackable__  
+  Specifies whether or not the data from this sensor could reasonably be
+  stacked with other values in a chart.
+  The default value is true.
+  Note that setting this option only specifies whether or not the associated
+  data can be stacked, a _Display group_ option (see below) will determine
+  whether or not the sensor data is rendered in this way on an output chart.
+  You can uncheck this option  to ensure that a sensor value which is
+  inherently discrete cannot be rendered in a misleading way.
 
     
 ## Notifications, warnings and errors
