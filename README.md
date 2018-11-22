@@ -10,7 +10,15 @@ The plugin includes a simple web application can be used to display the generate
 charts.
 
 Some examples of the type of data logging that can be undertaken are illustrated
-below. 
+below.
+
+By default __signalk-sensor-log__ invokes the rrdtool(1) command directly to
+perform all database access.
+For anything other than small scale logging activities it is more efficient execute
+rrdtool(1) as a service, allowing the plugin to more efficiently perform its database
+operations without undue burden on the host Signal K Node server.
+This mode of operation requires some configuration of the host environment described
+here.
 
 __Example 1__  
 Power levels reported from the host vessel's inverter/charger show changes in
