@@ -111,6 +111,17 @@ module.exports = function(app) {
                             title: "Re-create database",
                             type: "boolean",
                             default: DEFAULT_RRDDATABASE_RECREATE
+                        },
+                        options: {
+                            title: "RRD database options",
+                            type: "array",
+                            default: DEFAULT_RRDDATABASE_OPTIONS,
+                            items: {
+                                type: "string",
+                                enum: [ "plug" ],
+                                enumNames: [ "Plug data holes" ],
+                            },
+                            uniqueItems: true
                         }
                     }
                 },
@@ -303,7 +314,15 @@ module.exports = function(app) {
             collapse: {
                 field: 'ObjectField',
                 wrapClassName: 'panel-group'
-            }
+            },
+       	    options: {
+			    "ui:widget": {
+				    component: "checkboxes",
+				    options: {
+					    inline: true
+				    }
+			    }
+       	    }
        	},
         chart: {
             "ui:field": "collapsible",

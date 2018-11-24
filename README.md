@@ -16,7 +16,7 @@ __Example 1__
 Power levels reported from the host vessel's inverter/charger show changes in
 electrical power consumption and use.
 
-![Webapp screenshot](readme/power.png)
+![Webapp screenshot](readme/acpower.png)
 
 __Example 2__
 Readings from tank level sensors are plotted to illustrate changes in tank
@@ -64,19 +64,21 @@ Signal K Node server host and the system requirements are:
 The following instructions assume a standard installation of Signal K Node
 server on a normally configured Linux host: if you don't have this, then
 you may need to tweak what follows to suit your environment.
-My host machine uses the __apt__ package manager: if your's uses something
-else, then the example commands at (1) and (2) will need adjusting.
 
-1. Install _xinetd_ on your Signal K Node
-   server host using your system's package manager.
+My host machine uses the __apt__ package manager: if your's uses something
+else (perhaps _yum_), then the example commands at (1) and (2) will needs
+ adjusting.
+
+1. Install __xinetd__ on your Signal K Node server host using your system's
+   package manager.
    ```
-   sudo apt-get install xinetd`.
+   $> sudo apt-get install xinetd`.
    ```
    
-2. If you don't have it already, install __rrdtool__ on your Signal K Node
-   server host.
+2. Similarly, if you don't have it already, install __rrdtool__ on your Signal
+   K Node server host.
    ```
-   sudo apt-get install rrdtool
+   $> sudo apt-get install rrdtool
    ```
 
 3. Download and install __signalk-sensor-log__ using the _Appstore_ link
@@ -86,24 +88,64 @@ else, then the example commands at (1) and (2) will need adjusting.
    and installed using
    [these instructions](https://github.com/SignalK/signalk-server-node/blob/master/SERVERPLUGINS.md).
 
-4. Configure _rrdtool_ as an Internet service on port 13900 by editing
-   `/etc/services` and inserting the line:
+4. Configure __rrdtool__ as an Internet service and assign the service to a
+   free TCP port.
+   I suggest calling this new service 'rrdsrv' and recommend using port number
+   13900 which is usually unassigned on Linux systems (and for convenience is
+   used in __signalk-sensor-log__'s default configuration).
+
+   You can check if a service name is in use using the command
+   `grep _service-name_ /etc/services`: if this command issues no output,
+   then the service name is available; if you get some output, then someone
+   has trod this path before and you should proceed with caution.
+
+   You can similarly check if a port number is in use using the command
+   `grep _port-number_ /etc/services`: if this command issues no output,
+   then _port-number_ is available; if you get some output, then try port
+   13901 and so on.
+
+   For a new install I would expect to see:
+   ```
+   $> grep rrdsrv /etc/services
+   $> grep 13900 /etc/services
+   $>
+
+   ```
+   Once you have identified a unique service name and an unused TCP port, you
+   must register the new service by using your favourite text editor to insert
+   the following line into `/etc/services`:
    ```
    rrdsrv   13900/tcp   # RRDTool service
    ```
+   into the file (entries in the file are ordered by port number and it is
+   good practice to maintain this sequencing).
 
-5. Add the new service to _xinetd_ by copying the specimen configuration
-   file from the plugin download directory.
+5. Add the new service to __xinetd__.
+   If you used 'rrdsrv' as the service name and 13900 as the port number in
+   step (4), then you can simply copy the specimen configuration file from
+   the plugin download directory.
    ```
    cd ~/.signalk/node_modules/signalk-sensor-log
    sudo cp /extras/etc/xinetd.d/rrdsrv /etc/xinetd.d
    ```
+   If you used a different service name or port number then you will need to
+   edit the specimen configuration file and change its name before making
+   the copy.
 
-6. Restart _xinetd_ and check the service is working.
+6. Restart __xinetd__ and check the service is working.
    ```
    $> sudo /etc/init.d/xinetd restart
    $> telnet localhost rrdsrv
    ```
+   You should recieve a prompt from the RRD server (you can type `quit` to get
+   back to the system prompt).
+   If you receive an error message, then something has gone wrong and you need
+   to review your work and investigate further.
+
+That's it.
+You can now proceed to the next section which describes configuring and usings
+ __signalk-sensor-log__.
+
 
 ## Usage
 
@@ -112,6 +154,28 @@ else, then the example commands at (1) and (2) will need adjusting.
 In the server main menu navigate to _Server->Plugin config_ and select _Sensor
 Log_to access the plugin configuration screen.
 
+The configuration screen consist of a number of collapsible sections, each
+concerned with some aspect of the plugin's operation.
+Proceed with first configuration by:
+
+1. Expand the _rrdserver_ configuration tab and confirm that the server
+   connection details correspond with the service configuration you
+   implemented in the previous section.
+
+   [rrdserver configuration tab](readme/rrdserver.tab.png)
+
+   Make any necessary changes and close the tab.
+
+2. Expand the _sensor_ tab.
+   
+   [rrdserver sensor tab](readme/sensor.tab.png)
+
+   __signalk-sensor-log__ defaults to attempting to recover tank level data
+   and electrical power data streams from the Signal K Node server.
+   If your system has this data available, then you will a list of detected
+   sensors (more on this later); if this data is not available on your
+   system or you are not interested in it, but in something else, then you
+   need to modify the 
 When opened for the first time the configuration page will be populated with
 an entry for every sensor registered on the host Signal K server.
 Most likely you will not want to monitor all of these: indeed some will most
