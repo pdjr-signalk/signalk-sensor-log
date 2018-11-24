@@ -4,13 +4,14 @@ Log and chart sensor data using a round-robin database.
 
 __signalk-sensor-log__ logs sensor readings from the host Signal K Node server
 as time-series data in a round-robin database.
-Logged data is collated as one or more _chart groups_  consisting of charts
-which depict selected stored readings over a range of historic timescales.
-The plugin includes a simple web application can be used to display the generated
-charts.
+Logged data is collated as one or more _chart groups_  consisting of SVG
+charts which depict selected stored readings over a range of historic
+timescales.
+The plugin includes a simple web application which can be used to display the
+generated charts.
 
-Some examples of the type of data logging that can be undertaken are illustrated
-below.
+Some examples of the type of data logging that can be undertaken are
+illustrated below.
 
 __Example 1__  
 Power levels reported from the host vessel's inverter/charger show changes in
@@ -29,28 +30,27 @@ content over time.
 __signalk-sensor-log__ uses 
 [RRDtool](https://oss.oetiker.ch/rrdtool/)
 as its database manager.
-Whilst it is possible to use rrdtool directly from the command line to update
-and interrogate a database, the overheads of executing an external command
-from within the host Signal K Node server make this approach infeasible for
-anything but the most trivial application.
-Fortunately, rrdtool can also be used to provide a much more efficient
-database management service over a Unix domain TCP socket and the plugin
+Whilst it is possible to use __rrdtool__ directly from the command lines
+to update and interrogate a database, the overheads of executing an external
+command from within the host Signal K Node server make this approach
+infeasible for anything but the most trivial application.
+Fortunately, __rrdtool__ can also be used to provide a much more efficient
+database management service over a Unix domain TCP socket and this plugin
 requires such a service to be available in order to operate.
 
-The rrdtool service is easy to set up and can be implemented on either the
-same machine which hosts the Signal K Node server or on another machine on
-the same local-area network.
-The simplest way of implementing an rrdtool service is through use of an
-Internet service daemon like
-[xinetd](https://en.wikipedia.org/wiki/Xinetd)
-which is part of most modern Linux distributions.
+Setting up __rrdtool__ as a service under an Internet service daemon is
+straightforward and can be undertaken on either the Signal K Node server or on
+another machine on the same local-area network.
 
-In this document we discuss installing an _rrdtool_ based service on the
-Signal K Node server host and the system requirements are:
+In this document we discuss installing an RRDTool service on the Signal K Node
+server host.
+The system requirements, in addition to __signalk-sensor-log__, are identified
+below.
 
-1. _xinetd_ (part of most Linux distributions).
+1. [__xinetd__](https://en.wikipedia.org/wiki/Xinetd)
+   (part of most Linux distributions).
 
-2. _rrdtool_ (also part of most Linux distributions).
+2. __rrdtool__ (also part of most Linux distributions).
 
 3. Sufficient storage to hold the round-robin database and the generated image
    files.
@@ -66,8 +66,8 @@ server on a normally configured Linux host: if you don't have this, then
 you may need to tweak what follows to suit your environment.
 
 My host machine uses the __apt__ package manager: if your's uses something
-else (perhaps _yum_), then the example commands at (1) and (2) will needs
- adjusting.
+else (perhaps __yum__), then the example commands at (1) and (2) will need
+adjusting.
 
 1. Install __xinetd__ on your Signal K Node server host using your system's
    package manager.
@@ -75,8 +75,7 @@ else (perhaps _yum_), then the example commands at (1) and (2) will needs
    $> sudo apt-get install xinetd`.
    ```
    
-2. Similarly, if you don't have it already, install __rrdtool__ on your Signal
-   K Node server host.
+2. Similarly, install __rrdtool__ on your Signal K Node server host.
    ```
    $> sudo apt-get install rrdtool
    ```
@@ -109,7 +108,6 @@ else (perhaps _yum_), then the example commands at (1) and (2) will needs
    $> grep rrdsrv /etc/services
    $> grep 13900 /etc/services
    $>
-
    ```
    Once you have identified a unique service name and an unused TCP port, you
    must register the new service by using your favourite text editor to insert
@@ -162,13 +160,13 @@ Proceed with first configuration by:
    connection details correspond with the service configuration you
    implemented in the previous section.
 
-   [rrdserver configuration tab](readme/rrdserver.tab.png)
+   [rrdserver configuration tab](readme/rrdserver-tab.png)
 
    Make any necessary changes and close the tab.
 
 2. Expand the _sensor_ tab.
    
-   [rrdserver sensor tab](readme/sensor.tab.png)
+   [rrdserver sensor tab](readme/sensor-tab.png)
 
    __signalk-sensor-log__ defaults to attempting to recover tank level data
    and electrical power data streams from the Signal K Node server.

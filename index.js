@@ -38,6 +38,7 @@ const DEFAULT_RRDSERVER_OPTIONS = [ ];
 
 const DEFAULT_RRDDATABASE_UPDATEINTERVAL = 10; // Database update data frequency in seconds
 const DEFAULT_RRDDATABASE_RECREATE = false;
+const DEFAULT_RRDDATABASE_OPTIONS = [ "plug" ];
 
 const DEFAULT_CHART_DIRECTORY = "public/";
 const DEFAULT_CHART_CANVASCOLOR = "#000000";
