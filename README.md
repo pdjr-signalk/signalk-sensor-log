@@ -1,11 +1,11 @@
 # signalk-sensor-log
 
-Log time series sensor data.
+Log and chart sensor data using a round-robin database.
 
 __signalk-sensor-log__ logs sensor readings from the host Signal K Node server
 as time-series data in a round-robin database.
-Logged data can be collated as a _display group_  consisting of charts which
-depict the selected stored readings over a range of historic timescales.
+Logged data is collated as one or more _chart groups_  consisting of charts
+which depict selected stored readings over a range of historic timescales.
 
 Some examples of the type of data logging that can be undertaken are illustrated
 below. 
@@ -28,32 +28,87 @@ of the sea-bed over time.
 
 ![Webapp_screenshot](readme/screenshot.png)
 
-## System requirements
+## Overview and system requirements
 
-1. Sufficient storage to hold the round-robin database and the generated image
+__signalk-sensor-log__ uses 
+[RRDtool](https://oss.oetiker.ch/rrdtool/)
+as its database manager.
+Whilst it is possible to use rrdtool directly from the command line to update
+and interrogate a database, the overheads of executing an external command
+from within the host Signal K Node server make this approach infeasible for
+anything but the most trivial application.
+Fortunately, rrdtool can also be used to provide a much more efficient
+database management service over a Unix domain TCP socket and the plugin
+requires such a service to be available in order to operate.
+
+The rrdtool service is easy to set up and can be implemented on either the
+same machine which hosts the Signal K Node server (we assume this) or on
+another machine on the same local-area network.
+The simplest way of implementing an rrdtool service is through use of an
+Internet service daemon and here we assume the service is being set up in
+this way.
+
+So, the system requirements are:
+
+1. A host system which implements an Internet service daemon.
+   We describe the installation and configuration of
+   [xinetd](https://en.wikipedia.org/wiki/Xinetd)
+
+2. [RRDtool](https://oss.oetiker.ch/rrdtool/).
+   This application is part of most Linux distibutions.
+
+3. Sufficient storage to hold the round-robin database and the generated image
    files.
    Each monitored data channel requires around 4MB of database storage and
    there is a small system overhead of about 2MB.
    Each chart group consists of five SVG image files which in total occupy
    about 0.6MB.
 
-2. [RRDtool](https://oss.oetiker.ch/rrdtool/).
-   This application is part of most Linux distibutions.
-
 ## Installation
 
-1. If you don't have it already, install __rrdtool__ on your Signal K Node
-   server host.
-   Use your system's package manager, or download and install a suitable version
-   from the
-   [RRDtool download page](https://oss.oetiker.ch/rrdtool/download.en.html).
+The following instructions assume a standard installation of Signal K Node
+server on a normally configured Linux host: if you don't have this, then
+you may need to tweak what follows to suit your environment.
+My host machine uses the __apt__ package manager: if your's uses something
+else, then the example commands at (1) and (2) will need adjusting.
 
-2. Download and install __signalk-sensor-log__ using the _Appstore_ link
+1. If you don't have it already, install __xinetd__ on your Signal K Node
+   server host using your system's package manager.
+   ```
+   sudo apt-get install xinetd`.
+   ```
+   
+2. If you don't have it already, install __rrdtool__ on your Signal K Node
+   server host.
+   ```
+   sudo apt-get install rrdtool
+   ```
+
+3. Download and install __signalk-sensor-log__ using the _Appstore_ link
    in your Signal K Node server console.
    The plugin can also be downloaded from the
    [project homepage](https://github.com/preeve9534/signalk-sensor-log)
    and installed using
    [these instructions](https://github.com/SignalK/signalk-server-node/blob/master/SERVERPLUGINS.md).
+
+4. Configure _rrdtool_ as an Internet service on port 13900 by editing
+   `/etc/services` and inserting the line:
+   ```
+   rrdsrv   13900/tcp   # RRDTool service
+   ```
+
+5. Add the new service to _xinetd_ by copying the specimen configuration
+   file from the plugin download directory.
+   ```
+   cd ~/.signalk/node_modules/signalk-sensor-log
+   sudo cp /extras/etc/xinetd.d/rrdsrv /etc/xinetd.d
+   ```
+
+6. Restart _xinetd_ and check the service is working.
+   ```
+   $> sudo /etc/init.d/xinetd restart
+   $> telnet localhost rrdsrv
+   ```
 
 ## Usage
 

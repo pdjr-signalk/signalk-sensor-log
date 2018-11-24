@@ -21,42 +21,47 @@ const bacon = require('baconjs');
 const kellycolors = require('./lib/kellycolors');
 const rrdtool = require('./lib/rrdtool');
 
+const RRDFILENAME = "signalk-sensor-log.rrd";
+const RRDLOCKFILENAME = __dirname + "/" + RRDFILENAME + ".lock";
 const HOUR_GRAPH_INTERVAL = 30; // 'day' graph updated every 5 minutes
 const DAY_GRAPH_INTERVAL = 55; // 'day' graph updated every 5 minutes
 const WEEK_GRAPH_INTERVAL = 123; // 'week' graph updated every 30 minutes
 const MONTH_GRAPH_INTERVAL = 247; // 'month' graph updated every 2 hours minutes
 const YEAR_GRAPH_INTERVAL = 1441; // 'year' graph updated every day
 const GRAPH_INTERVALS = [ HOUR_GRAPH_INTERVAL, DAY_GRAPH_INTERVAL, WEEK_GRAPH_INTERVAL, MONTH_GRAPH_INTERVAL, YEAR_GRAPH_INTERVAL ];
-const RRDCREATESCRIPT = __dirname + "/bin/createrrd";
-const RRDGRAPHSCRIPT = __dirname + "/bin/graphrrd";
-const GRAPH_TITLE = "Power levels over last";
-const GRAPH_YLABEL = "Power/W";
 const CHARTMANIFEST = "manifest.json";
-
-const DEFAULT_RRDPATHNAME = "database.rrd";
-const DEFAULT_RRDUPDATEINTERVAL = 10; // Database update data frequency in seconds
-const DEFAULT_RRDOPTIONS = [];
-const DEFAULT_REPORTOPTIONS = [];
-const DEFAULT_CHARTDIRECTORY = "public/";
-const DEFAULT_CONSOLEREPORTING = false;
 const DEFAULT_DATAMAX = 10000;
-const DEFAULT_DISPLAYCOLOR = "#000000";
 
-const DEFAULT_SENSORNAME = "";
-const DEFAULT_SENSORDISPLAYCOLOR = "#000000";
-const DEFAULT_SENSORDISPLAYGROUPS = "ALL";
-const DEFAULT_SENSORMULTIPLIER = 1;
-const DEFAULT_SENSOROPTIONS = [ "stackable" ];
+const DEFAULT_RRDSERVER_NAME = "127.0.0.1";
+const DEFAULT_RRDSERVER_PORT = 13900;
+const DEFAULT_RRDSERVER_OPTIONS = [ ];
 
-const DEFAULT_DISPLAYTITLE = "Sensor values";
-const DEFAULT_DISPLAYYLABEL = "Sensor value";
-const DEFAULT_DISPLAYYMAX = 0;
-const DEFAULT_DISPLAYOPTIONS = [];
+const DEFAULT_RRDDATABASE_UPDATEINTERVAL = 10; // Database update data frequency in seconds
+const DEFAULT_RRDDATABASE_RECREATE = false;
+
+const DEFAULT_CHART_DIRECTORY = "public/";
+const DEFAULT_CHART_CANVASCOLOR = "#000000";
+const DEFAULT_CHART_BACKGROUNDCOLOR = "#000000";
+const DEFAULT_CHART_FONTCOLOR = "#804000";
+
+const DEFAULT_LOGGING_CONSOLE = [ "updates", "notifications", "errors" ];
+const DEFAULT_LOGGING_SYSLOG = [ "warnings", "errors" ];
+
+const DEFAULT_SENSOR_SELECTOR = "\.(currentLevel|power)$";
+const DEFAULT_SENSOR_RESCAN = false;
+const DEFAULT_SENSOR_NAME = "";
+const DEFAULT_SENSOR_DISPLAYCOLOR = "#FFFFFF";
+const DEFAULT_SENSOR_DISPLAYGROUPS = "ALL";
+const DEFAULT_SENSOR_MULTIPLIER = 1;
+const DEFAULT_SENSOR_OPTIONS = [ "stackable" ];
+
+const DEFAULT_DISPLAYGROUP_TITLE = "Sensor values";
+const DEFAULT_DISPLAYGROUP_YLABEL = "Sensor value";
+const DEFAULT_DISPLAYGROUP_YMAX = 0;
+const DEFAULT_DISPLAYGROUP_OPTIONS = [];
 
 module.exports = function(app) {
-	var RRDTOOL;
-	var RRDPATHNAME;
-	var CHARTDIRECTORY;
+	var CHARTDIRECTORY = null;
 	var plugin = {};
 	var unsubscribes = [];
 
@@ -68,218 +73,364 @@ module.exports = function(app) {
 		return({	
 			type: "object",
 			properties: {
-				rrdpathname: {
-					title: "Database filename",
-					type: "string",
-					default: DEFAULT_RRDPATHNAME
+                rrdserver: {
+                    type: "object",
+                    properties: {
+                        name: {
+                            title: "RRD server hostname",
+                            type: "string",
+                            default: DEFAULT_RRDSERVER_NAME
+                        },
+                        port: {
+                            title: "RRD server port",
+                            type: "number",
+                            default: DEFAULT_RRDSERVER_PORT
+                        },
+				        options: {
+					        title: "RRD server options",
+					        type: "array",
+                            default: DEFAULT_RRDSERVER_OPTIONS,
+					        items: {
+						        type: "string",
+						        enum: [ "logeverything" ],
+						        enumNames: [ "Log all database activity" ]
+					        },
+					        uniqueItems: true
+                        }
+                    }
 				},
-                rrdupdateinterval: {
-                    title: "Database update interval",
-                    type: "number",
-                    default: DEFAULT_RRDUPDATEINTERVAL
+                rrddatabase: {
+                    type: "object",
+                    properties: {
+                        updateinterval: {
+                            title: "Database update interval",
+                            type: "number",
+                            default: DEFAULT_RRDDATABASE_UPDATEINTERVAL
+                        },
+                        recreate: {
+                            title: "Re-create database",
+                            type: "boolean",
+                            default: DEFAULT_RRDDATABASE_RECREATE
+                        }
+                    }
                 },
-				rrdoptions: {
-					title: "Database re-generation options",
-					type: "array",
-                    			default: DEFAULT_RRDOPTIONS,
-					items: {
-						type: "string",
-						enum: [ "create", "init" ],
-						enumNames: [ "Re-create database", "Re-initialise database" ]
-					},
-					uniqueItems: true
-				},
-				chartdirectory: {
-					title: "Chart directory",
-					type: "string",
-					default: DEFAULT_CHARTDIRECTORY
-				},
-				reportoptions: {
-					title: "Report options",
-					type: "array",
-                    default: DEFAULT_REPORTOPTIONS,
-					items: {
-						type: "string",
-						enum: [ "console" ],
-						enumNames: [ "Log updates to console" ]
-					},
-					uniqueItems: true
-				},
-				sensors: {
-					title: "Sensors",
-					type: "array",
-					default: loadSensors("\.(currentLevel|power)$"),
-					items: {
-						type: "object",
-						properties: {
-							path: {
-								title: "Sensor path",
-								type: "string",
-								default: ""
-							},
-							name: {
-								title: "Sensor name",
-								type: "string",
-								default: DEFAULT_SENSORNAME
-							},
-							displaycolor: {
-								title: "Color to use when rendering this sensor",
-								type: "string",
-								default: DEFAULT_SENSORDISPLAYCOLOR
-							},
-							displaygroups: {
-								title: "Display groups which include this sensor",
-								type: "string",
-								default: DEFAULT_SENSORDISPLAYGROUPS
-							},
-                            multiplier: {
-                                title: "Multiplier for sensor values",
-                                type: "number",
-                                default: DEFAULT_SENSORMULTIPLIER
+                chart: {
+                    type: "object",
+                    properties: {
+				        directory: {
+					        title: "Chart directory",
+					        type: "string",
+					        default: DEFAULT_CHART_DIRECTORY
+				        },
+                        canvascolor: {
+							title: "Color to use for chart canvas",
+							type: "string",
+							default: DEFAULT_CHART_CANVASCOLOR
+                        },
+                        backgroundcolor: {
+							title: "Color to use for chart background",
+							type: "string",
+							default: DEFAULT_CHART_BACKGROUNDCOLOR
+                        },
+                        fontcolor: {
+							title: "Color to use for chart foreground",
+							type: "string",
+							default: DEFAULT_CHART_FONTCOLOR
+                        }
+                    }
+                },
+                logging: {
+                    type: "object",
+                    properties: { 
+				        console: {
+					        title: "Report the following events to Signal K server console",
+					        type: "array",
+                            default: DEFAULT_LOGGING_CONSOLE,
+					        items: {
+						        type: "string",
+						        enum: [ "updates", "notifications", "warnings", "errors" ],
+						        enumNames: [ "Database updates", "Notifications", "Warnings", "Errors" ]
                             },
-                            options: {
-					            title: "Sensor options",
-					            type: "array",
-                                default: DEFAULT_SENSOROPTIONS,
-					            items: {
-						            type: "string",
-						            enum: [ "stackable" ],
-						            enumNames: [ "Stackable?" ]
-					            },
-					            uniqueItems: true
-                            }
-						}
+					        uniqueItems: true
+                        },
+                        syslog: {
+					        title: "Report the following events to system log",
+					        type: "array",
+                            default: DEFAULT_LOGGING_SYSLOG,
+					        items: {
+						        type: "string",
+						        enum: [ "updates", "notifications", "warnings", "errors" ],
+						        enumNames: [ "Database updates", "Notifications", "Warnings", "Errors" ]
+                            },
+					        uniqueItems: true
+                        }
+                    }
+				},
+				sensor: {
+                    type: "object",
+                    properties: {
+                        selector: {
+                            title: "Regex to select sensor path",
+                            type: "string",
+                            default: DEFAULT_SENSOR_SELECTOR
+                        },
+                        currentselector: {
+                            type: "string",
+                            default: DEFAULT_SENSOR_SELECTOR
+                        },
+                        rescan: {
+                            title: "Scan host server and re-build sensor list",
+                            type: "boolean",
+                            default: DEFAULT_SENSOR_RESCAN
+                        },
+                        list: {
+					        title: "Sensor list",
+					        type: "array",
+					        default: loadSensors(DEFAULT_SENSOR_SELECTOR),
+				        	items: {
+						        type: "object",
+						        properties: {
+							        path: {
+								        title: "Sensor path",
+								        type: "string",
+								        default: ""
+							        },
+							        name: {
+								        title: "Sensor name",
+								        type: "string",
+								        default: DEFAULT_SENSOR_NAME
+							        },
+							        displaycolor: {
+								        title: "Color to use when rendering this sensor",
+								        type: "string",
+								        default: DEFAULT_SENSOR_DISPLAYCOLOR
+							        },
+							        displaygroups: {
+								        title: "Display groups which include this sensor",
+								        type: "string",
+								        default: DEFAULT_SENSOR_DISPLAYGROUPS
+							        },
+                                    multiplier: {
+                                        title: "Multiplier for sensor values",
+                                        type: "number",
+                                        default: DEFAULT_SENSOR_MULTIPLIER
+                                    },
+                                    options: {
+					                    title: "Sensor options",
+					                    type: "array",
+                                        default: DEFAULT_SENSOR_OPTIONS,
+					                    items: {
+						                    type: "string",
+						                    enum: [ "stackable" ],
+						                    enumNames: [ "Stackable?" ]
+					                    },
+					                    uniqueItems: true
+                                    }
+                                }
+						    }
+                        }
 					}
 				},
-				displaygroups: {
-					title: "Display groups",
-					type: "array",
-					default: generateDisplayGroups(loadSensors()),
-					items: {
-						type: "object",
-						properties: {
-							id: {
-								title: "Display group id",
-								type: "string",
-								default: ""
-							},
-							title: {
-								title: "Chart title",
-								type: "string",
-								default: ""
-							},
-							ylabel: {
-								title: "Chart y-axis label",
-								type: "string",
-								default: ""
-							},
-                            ymax: {
-                                title: "Maximum y-axis value",
-                                type: "number",
-                                default: 0
-                            },
-                            options: {
-					            title: "Chart options",
-					            type: "array",
-                                default: DEFAULT_DISPLAYOPTIONS,
-					            items: {
-						            type: "string",
-						            enum: [ "stack" ],
-						            enumNames: [ "Stack graph data" ]
-					            },
-					            uniqueItems: true
-                            }
-                        }
-					},
-					uniqueItems: true
-				}
+				displaygroup: {
+                    type: "object",
+                    properties: {
+					    list: {
+                            title: "Display groups",
+					        type: "array",
+					        default: generateDisplayGroups(loadSensors()),
+					        items: {
+						        type: "object",
+						        properties: {
+							        id: {
+								        title: "Display group id",
+								        type: "string",
+								        default: ""
+							        },
+							        title: {
+								        title: "Chart title",
+								        type: "string",
+								        default: DEFAULT_DISPLAYGROUP_TITLE
+							        },
+							        ylabel: {
+								        title: "Chart y-axis label",
+								        type: "string",
+								        default: DEFAULT_DISPLAYGROUP_YLABEL
+							        },
+                                    ymax: {
+                                        title: "Maximum y-axis value",
+                                        type: "number",
+                                        default: DEFAULT_DISPLAYGROUP_YMAX
+                                    },
+                                    options: {
+					                    title: "Chart options",
+					                    type: "array",
+                                        default: DEFAULT_DISPLAYGROUP_OPTIONS,
+					                    items: {
+						                    type: "string",
+						                    enum: [ "stack" ],
+						                    enumNames: [ "Stack graph data" ]
+					                    },
+					                    uniqueItems: true
+                                    }
+                                }
+					        },
+					        uniqueItems: true
+				        }
+                    }
+                }
 			}
 		});
 	}
  
 	plugin.uiSchema = {
-       	rrdoptions: {
-			"ui:widget": {
-				component: "checkboxes",
-				options: {
-					inline: true
-				}
-			}
+        rrdserver: {
+            "ui:field": "collapsible",
+            collapse: {
+                field: 'ObjectField',
+                wrapClassName: 'panel-group'
+            },
+       	    options: {
+			    "ui:widget": {
+				    component: "checkboxes",
+				    options: {
+					    inline: true
+				    }
+			    }
+       	    }
+        },
+        rrddatabase: {
+            "ui:field": "collapsible",
+            collapse: {
+                field: 'ObjectField',
+                wrapClassName: 'panel-group'
+            }
        	},
-       	reportoptions: {
-			"ui:widget": {
-				component: "checkboxes",
-				options: {
-					inline: true
-				}
-			}
-       	},
-		sensors: {
-			"ui:options": {
-				addable: false
+        chart: {
+            "ui:field": "collapsible",
+            collapse: {
+                field: 'ObjectField',
+                wrapClassName: 'panel-group'
+            },
+			canvascolor: {
+				"ui:widget": "color"
 			},
-			items: {
-				path: {
-					"ui:disabled": true
-				},
-				displaycolor: {
-					"ui:widget": "color"
-				},
-                isratio: {
-                },
-                options: {
-			        "ui:widget": {
-				        component: "checkboxes",
-				        options: {
-					        inline: true
-				        }
-			        }
+			backgroundcolor: {
+				"ui:widget": "color"
+			},
+			fontcolor: {
+				"ui:widget": "color"
+			},
+        },
+        logging: {
+            "ui:field": "collapsible",
+            collapse: {
+                field: 'ObjectField',
+                wrapClassName: 'panel-group'
+            },
+       	    console: {
+			    "ui:widget": {
+				    component: "checkboxes",
+				    options: {
+					    inline: true
+				    }
+			    }
+       	    },
+       	    syslog: {
+			    "ui:widget": {
+				    component: "checkboxes",
+				    options: {
+					    inline: true
+				    }
+			    }
+       	    }
+        },
+		sensor: {
+            "ui:field": "collapsible",
+            collapse: {
+                field: 'ObjectField',
+                wrapClassName: 'panel-group'
+            },
+            list: {
+			    "ui:options": {
+				    addable: false
+			    },
+			    items: {
+				    path: {
+					    "ui:disabled": true
+				    },
+				    displaycolor: {
+					    "ui:widget": "color"
+				    },
+                    isratio: {
+                    },
+                    options: {
+			            "ui:widget": {
+				            component: "checkboxes",
+				            options: {
+					            inline: true
+				            }
+			            }
+                    }
                 }
 			}
 		},
-        displaygroups: {
-            items: {
-       	        options: {
-			        "ui:widget": {
-				        component: "checkboxes",
-				        options: {
-					        inline: true
-				        }
-			        }
-       	        }
+        displaygroup: {
+            "ui:field": "collapsible",
+            collapse: {
+                field: 'ObjectField',
+                wrapClassName: 'panel-group'
+            },
+            list: {
+                items: {
+       	            options: {
+			            "ui:widget": {
+				            component: "checkboxes",
+				            options: {
+					            inline: true
+				            }
+			            }
+       	            }
+                }
             }
-        }
-	}
+	    }
+    }
 
 	plugin.start = function(options) {
-		// If rrdtool doesn't exist, then we can't do anything.
+        //////////////////////////////////////////////////////////////////////
+        // SOME OPTIONS REQUIRE AN IMMEDIATE RESTART /////////////////////////
+        //////////////////////////////////////////////////////////////////////
+
+		// If the user has changed the sensor selector regex or has explicitly
+        // requested a re-scan of sensor paths, then we comply and immediately
+        // re-start the plugin.
 		//
-		try {
-			RRDTOOL = execSync("which rrdtool").toString().trim();
-		} catch(e) {
-			logEE("Cannot find required command 'rrdtool'");
+		if ((options.sensor.rescan) || (options.sensor.selector != options.sensor.currentselector)) {
+			logNN(undefined, "Scanning server for sensor data streams");
+            options.sensor.list = loadSensors(options.sensor.selector, options.sensor.list);
+            options.sensor.rescan = false;
+            options.sensor.currentselector = options.sensor.selector;
+            app.savePluginOptions(options);
+            // TODO restart plugin
+        }
+
+
+        //////////////////////////////////////////////////////////////////////
+        // START SANITY CHECKS ///////////////////////////////////////////////
+        //////////////////////////////////////////////////////////////////////
+
+        // If no sensor streams are defined, then there is nothing for us to
+        // do, so we should just die.
+        //
+        if (options.sensor.list.length == 0) {
+			logEE("There are no accessible sensor data streams");
 			return;
 		}
 
-		// If the configuration doesn't supply a database name, then we
-        // simply isupply our own. 
+		// If the configuration supplies a graph directory path then we check
+        // that we can create and delete files there.
 		//
-      	if (options.rrdpathname.length == 0) {
-            logWW("Database pathname was blank - using a default"); 
-			options.rrdpathname = DEFAULT_RRDPATHNAME; app.savePluginOptions(options);
-		}
-		RRDPATHNAME = (options.rrdpathname.charAt(0) != '/')?(__dirname + "/" + options.rrdpathname):options.rrdpathname;
-
-		// If the configuration doesn't supply a graph directory path
-		// then we should warn about this because subsequently we will
-		// not be producing any graphs. If it does, then we check that
-		// we can write and delete files there.
-		//
-      	if (options.chartdirectory.length == 0) {
-			logWW("Graph generation disabled at user request");
-			CHARTDIRECTORY = null;
-		} else {
-			CHARTDIRECTORY = (options.chartdirectory.charAt(0) != '/')?(__dirname + "/" + options.chartdirectory):options.chartdirectory;
+      	if (options.chart.directory !== undefined) {
+			CHARTDIRECTORY = (options.chart.directory.charAt(0) != '/')?(__dirname + "/" + options.chart.directory):options.chart.directory;
 			CHARTDIRECTORY = (CHARTDIRECTORY.substr(-1) != '/')?(CHARTDIRECTORY + "/"):CHARTDIRECTORY;
 			try {
   				fs.writeFileSync(CHARTDIRECTORY + "test.svg");
@@ -290,33 +441,57 @@ module.exports = function(app) {
 			}
 		}
 
-		// If the configuration options do not include any sensor
-		// definitions, then we should terminate.
-		//
-		if (options.rrdoptions.includes("scan")) {
-			logNN(undefined, "Scanning for sensor data streams");
-            options.rrdoptions.includes = [];
-            options.sensors = loadSensors();
-            app.savePluginOptions(options);
-        }
-        if (options.sensors.length == 0) {
-			logEE("There are no accessible sensor data streams");
-			return;
-		}
+        // TODO - check that database TCP socket is active.
 
-        options.displaygroups = generateDisplayGroups(options.sensors, options.displaygroups);
+        //////////////////////////////////////////////////////////////////////
+        // HOUSEKEEPING //////////////////////////////////////////////////////
+        //////////////////////////////////////////////////////////////////////
+
+        // Update the displaygroup options from the sensor list, just in-case
+        // there have been any changes.
+        //
+        options.displaygroup.list = generateDisplayGroups(options.sensor.list, options.displaygroup.list);
+
+        // Warn the user if chart generation has been disabled.
+        //
+      	if (CHARTDIRECTORY == null) {
+			logWW("Graph generation disabled at user request");
+        }
+
+        // If the user wants a new database, then make sure one will
+        // subsequently be created by deleting any database lock file.
+        //
+        if (options.rrddatabase.recreate) {
+            fs.unlinkSync(RRDLOCKFILENAME);
+            options.rrddatabase.recreate = false;
+        }
+
+        // We may have changes some options, so let's save the options to disk
+        // just to be on the safe side.
+        //
         app.savePluginOptions(options);
 
-		// If no database exists then we need to create one.
+        //////////////////////////////////////////////////////////////////////
+        // BEGIN /////////////////////////////////////////////////////////////
+        //////////////////////////////////////////////////////////////////////
+
+        // Tell the rrdtool library that we will be using a remote server to
+        // manage database operations.
+        //
+        rrdtool.useServer(options.rrdserver.name, options.rrdserver.port, (options.rrdserver.options.includes("logeverything")?2:1));
+
+        // If no database exists then we need to create one.  We check for the
+        // presence of the database lockfile and if it isn't there then we
+        // make the create call.
 		//
-		if ((!fs.existsSync(RRDPATHNAME)) || (options.rrdoptions.includes("create"))) {
-            options.rrdoptions.includes = []; app.savePluginOptions(options);
-			logNN("Creating new database '" + RRDPATHNAME + "'");
+		if (!fs.existsSync(RRDLOCKFILENAME)) {
+			logNN("Creating new database '" + RRDFILENAME + "'");
 			try {
-                rrdtool.createDatabase(RRDPATHNAME, options.rrdupdateinterval, 0, DEFAULT_DATAMAX, options.sensors.map(v => makeIdFromPath(v['path'])));
+                rrdtool.createDatabase(RRDFILENAME, options.rrddatabase.updateinterval, 0, DEFAULT_DATAMAX, options.sensor.list.map(v => makeIdFromPath(v['path'])));
+                fs.closeSync(fs.openSync(RRDLOCKFILENAME, 'w'));
 			} catch(err) {
-				logEE("Error creating database '" + RRDPATHNAME + "'", "Error creating database '" + RRDPATHNAME + "' (" + err.toString() + ")"); 
-				return;
+			    logEE("Error creating database '" + RRDFILENAME + "'", "Error creating database '" + RRDFILENAME + "' (" + err.toString() + ")"); 
+			    return;
 			}
 		}
 
@@ -326,68 +501,65 @@ module.exports = function(app) {
 		// We obtain an array of sensor data streams (one for each sensor path)
 		// and then zip them together as a single stream which we sample once
 		// every UPDATE_INTERVAL.
-		if (fs.existsSync(RRDPATHNAME)) {
-			var streams = options.sensors.map(v => app.streambundle.getSelfBus(v['path']));
-            var tick = 0;
-			logNN("Connected to " + streams.length  + " sensor streams");
+        //
+		var streams = options.sensor.list.map(v => app.streambundle.getSelfBus(v['path']));
+        var tick = 0;
+		logNN("Connected to " + streams.length  + " sensor streams");
 
-            unsubscribes.push(bacon.interval((1000 * options.rrdupdateinterval), 0).onValue(function(t) {
-                tick++;
-				var now = Math.floor(Date.now() / 60000);
-			    bacon.zipAsArray(streams).onValue(function(v) {
-                    try {
-                        var val = v.map(a => ((a['value'] == null)?'U':a['value']));
-                        for (var i = 0; i < options.sensors.length; i++) { val[i] *= options.sensors[i]['multiplier']; }
-			            if (options.reportoptions.includes('console')) logN("Connected to " + streams.length  + " sensor streams (" + val + ")");
-				        rrdtool.updateDatabase(RRDPATHNAME, v.map(a => makeIdFromPath(a['path'])), val);
-                    } catch(err) {
-                        logEE("Error executing update command", "Error executing update command (" + err + ")");
-                    }
-                    return(bacon.noMore);
+        unsubscribes.push(bacon.interval((1000 * options.rrddatabase.updateinterval), 0).onValue(function(t) {
+            tick++;
+	    	var now = Math.floor(Date.now() / 60000);
+		    bacon.zipAsArray(streams).onValue(function(v) {
+                try {
+                    var val = v.map(a => ((a['value'] == null)?'U':a['value']));
+                    for (var i = 0; i < options.sensor.list.length; i++) { val[i] *= options.sensor.list[i]['multiplier']; }
+		            if (options.logging.console.includes('updates')) logN("Connected to " + streams.length  + " sensor streams (" + val + ")");
+			        rrdtool.updateDatabase(RRDFILENAME, v.map(a => makeIdFromPath(a['path'])), val);
+                } catch(err) {
+                    logEE("Error executing update command", "Error executing update command (" + err + ")");
+                }
+                return(bacon.noMore);
+            });
+
+			if (CHARTDIRECTORY != null) {
+                options.displaygroup.list.forEach(function(displaygroup) {
+					[ 'hour','day','week','month','year' ].filter((v,i) => ((tick % GRAPH_INTERVALS[i]) == 0)).forEach(function(period) {
+	                    try {  
+	                        logNN(undefined, "Generating graph for period = " + period);
+                            var dgsensors = options.sensor.list.filter(s => (s['displaygroups'].includes(displaygroup['id'])));
+                            var properties = {
+                                "canvascolor": options.chart.canvascolor,
+                                "backgroundcolor": options.chart.backgroundcolor,
+                                "fontcolor": options.chart.fontcolor,
+	                            "displaycolors": dgsensors.map(s => s['displaycolor']),
+	                            "displaynames": dgsensors.map(s => s['name']),
+	                            "period": period,
+	                            "title": displaygroup['title'] + " (over past " + period + ")",
+	                            "ylabel": displaygroup['ylabel'],
+                                "ymax": displaygroup['ymax']
+                            };
+                            if (displaygroup['options'].includes('stack')) {
+                                properties.linetypes = dgsensors.map(s => (s['options'].includes('stackable')?'AREA':'LINE2'));
+                                properties.stack = dgsensors.map(s => s['options'].includes('stackable'));
+                            }
+	                        rrdtool.createChart(
+	                            CHARTDIRECTORY + displaygroup['id'] + ".",
+	                            RRDFILENAME,
+	                            dgsensors.map(s => makeIdFromPath(s['path'])),
+                                properties
+	                        );
+	                    } catch(err) {
+	                        logEE("Error creating chart", err);
+	                    }
+	                });
                 });
-
-				if (CHARTDIRECTORY != null) {
-                    options.displaygroups.forEach(function(displaygroup) {
-						[ 'hour','day','week','month','year' ].filter((v,i) => ((tick % GRAPH_INTERVALS[i]) == 0)).forEach(function(period) {
-	                        try {  
-	                            logNN(undefined, "Generating graph for period = " + period);
-                                var dgsensors = options.sensors.filter(s => (s['displaygroups'].includes(displaygroup['id'])));
-                                var properties = {
-	                                "displaycolors": dgsensors.map(s => s['displaycolor']),
-	                                "displaynames": dgsensors.map(s => s['name']),
-	                                "period": period,
-	                                "title": displaygroup['title'] + " (over past " + period + ")",
-	                                "ylabel": displaygroup['ylabel'],
-                                    "ymax": displaygroup['ymax']
-                                };
-                                if (displaygroup['options'].includes('stack')) {
-                                    properties.linetypes = dgsensors.map(s => (s['options'].includes('stackable')?'AREA':'LINE2'));
-                                    properties.stack = dgsensors.map(s => s['options'].includes('stackable'));
-                                }
-	                            rrdtool.createChart(
-	                                CHARTDIRECTORY + displaygroup['id'] + ".",
-	                                RRDPATHNAME,
-	                                dgsensors.map(s => makeIdFromPath(s['path'])),
-                                    properties
-	                            );
-	                        } catch(err) {
-	                            logEE("Error creating graph", err);
-	                        }
-	                    });
-                    });
-                    try {
-                        writeManifest(CHARTDIRECTORY + CHARTMANIFEST, options.displaygroups);
-                    } catch(err) {
-                        logWW("Error creating chart manifest");
-                    }    
-				}
-
-			}));
-
-		} else {
-			logEE("Missing databse '" + RRDPATHNAME + "'");
-			return;
-		}
+                try {
+                    writeManifest(CHARTDIRECTORY + CHARTMANIFEST, options.displaygroup.list);
+                } catch(err) {
+                    logWW("Error creating chart manifest");
+                }    
+	    	}
+		}));
 	}
 
 	plugin.stop = function() {
@@ -401,20 +573,36 @@ module.exports = function(app) {
         });
     }
 
-	function loadSensors(regex) {
+    /**
+     * Recovers the list of currently available data paths from the Signal K
+     * server and filters them using the supplied regular expression.  The
+     * result of this operation is cached to disk and returned to the
+     * caller.
+     */
+
+	function loadSensors(regex, sensors) {
         var regexp = RegExp(regex);
-	    return(app.streambundle.getAvailablePaths()
+        var retval = app.streambundle.getAvailablePaths()
             .filter(path => (regexp.test(path)))
-		    .map(path => ({ 
-                "path": path,
-                "name": makeIdFromPath(path),
-                "displaycolor": kellycolors.getNextColor(),
-		        "displaygroups": DEFAULT_SENSORDISPLAYGROUPS,
-                "multiplier": DEFAULT_SENSORMULTIPLIER,
-                "options": DEFAULT_SENSOROPTIONS
-            }))
-        );
+		    .map(function(path) {  
+                var existing = (sensors !== undefined)?sensors.reduce((a,s) => ((s['path'] == path)?s:a),undefined):undefined;
+                return({
+                    "path": path,
+                    "name": (existing === undefined)?makeIdFromPath(path):existing['name'],
+                    "displaycolor": (existing === undefined)?kellycolors.getNextColor():existing['displaycolor'],
+		            "displaygroups": (existing === undefined)?DEFAULT_SENSOR_DISPLAYGROUPS:existing['displaygroups'],
+                    "multiplier": (existing === undefined)?DEFAULT_SENSOR_MULTIPLIER:existing['multiplier'],
+                    "options": (existing === undefined)?DEFAULT_SENSOR_OPTIONS:existing['options']
+                });
+            });
+        return(retval);
 	}
+
+    function checkSensors(sensors, cachefile) {
+        var cache = JSON.parse(fs.read(cachefile));
+        return(sensors === cache);
+    }
+
 
 	function generateDisplayGroups(sensors, displaygroups) {
 		var retval = [];
@@ -424,10 +612,10 @@ module.exports = function(app) {
             var existing = (displaygroups !== undefined)?displaygroups.filter(dg => (dg['id'] == definedgroupname))[0]:undefined;;
             retval.push({
                 id: definedgroupname,
-                title: (existing === undefined)?DEFAULT_DISPLAYTITLE:existing['title'],
-                ylabel: (existing === undefined)?DEFAULT_DISPLAYYLABEL:existing['ylabel'],
-                ymax: (existing === undefined)?DEFAULT_DISPLAYYMAX:existing['ymax'],
-                options: (existing === undefined)?DEFAULT_DISPLAYOPTIONS:existing['options']
+                title: (existing === undefined)?DEFAULT_DISPLAYGROUP_TITLE:existing['title'],
+                ylabel: (existing === undefined)?DEFAULT_DISPLAYGROUP_YLABEL:existing['ylabel'],
+                ymax: (existing === undefined)?DEFAULT_DISPLAYGROUP_YMAX:existing['ymax'],
+                options: (existing === undefined)?DEFAULT_DISPLAYGROUP_OPTIONS:existing['options']
             });
 		});
 
@@ -442,8 +630,6 @@ module.exports = function(app) {
 			throw("parse error");
 		}
 	}
-
-
 
 	function log(prefix, terse, verbose) {
 		if (verbose != undefined) console.log(plugin.id + ": " + prefix + ": " + verbose);
