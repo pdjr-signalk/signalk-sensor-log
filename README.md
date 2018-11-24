@@ -6,27 +6,23 @@ __signalk-sensor-log__ logs sensor readings from the host Signal K Node server
 as time-series data in a round-robin database.
 Logged data is collated as one or more _chart groups_  consisting of charts
 which depict selected stored readings over a range of historic timescales.
+The plugin includes a simple web application can be used to display the generated
+charts.
 
 Some examples of the type of data logging that can be undertaken are illustrated
-below. 
+below.
 
 __Example 1__  
-_currentLevel_ data value from the system's tank data sensore can be logged to
-show changes in tank levels over time.
-
-![Webapp screenshot](readme/screenshot.png)
-
-__Example 2__  
-Power levels reported from the host vessel's inverter/charger can be logged to
-show changes in electrical power consumption and use.
+Power levels reported from the host vessel's inverter/charger show changes in
+electrical power consumption and use.
 
 ![Webapp screenshot](readme/power.png)
 
-__Example 3__
-Readings from the echo sounder are plotted to illustrate changes in the depth
-of the sea-bed over time.
+__Example 2__
+Readings from tank level sensors are plotted to illustrate changes in tank
+content over time.
 
-![Webapp_screenshot](readme/screenshot.png)
+![Webapp_screenshot](readme/tanks.png)
 
 ## Overview and system requirements
 
@@ -42,20 +38,19 @@ database management service over a Unix domain TCP socket and the plugin
 requires such a service to be available in order to operate.
 
 The rrdtool service is easy to set up and can be implemented on either the
-same machine which hosts the Signal K Node server (we assume this) or on
-another machine on the same local-area network.
+same machine which hosts the Signal K Node server or on another machine on
+the same local-area network.
 The simplest way of implementing an rrdtool service is through use of an
-Internet service daemon and here we assume the service is being set up in
-this way.
+Internet service daemon like
+[xinetd](https://en.wikipedia.org/wiki/Xinetd)
+which is part of most modern Linux distributions.
 
-So, the system requirements are:
+In this document we discuss installing an _rrdtool_ based service on the
+Signal K Node server host and the system requirements are:
 
-1. A host system which implements an Internet service daemon.
-   We describe the installation and configuration of
-   [xinetd](https://en.wikipedia.org/wiki/Xinetd)
+1. _xinetd_ (part of most Linux distributions).
 
-2. [RRDtool](https://oss.oetiker.ch/rrdtool/).
-   This application is part of most Linux distibutions.
+2. _rrdtool_ (also part of most Linux distributions).
 
 3. Sufficient storage to hold the round-robin database and the generated image
    files.
@@ -72,7 +67,7 @@ you may need to tweak what follows to suit your environment.
 My host machine uses the __apt__ package manager: if your's uses something
 else, then the example commands at (1) and (2) will need adjusting.
 
-1. If you don't have it already, install __xinetd__ on your Signal K Node
+1. Install _xinetd_ on your Signal K Node
    server host using your system's package manager.
    ```
    sudo apt-get install xinetd`.
@@ -238,9 +233,13 @@ Specifies whether or not the plugin should issue a terse summary of the data
 values being written to the database each time an update occurs.
 The default behaviour is not to report in this way.
 
-#### Sensor configuration options  
+### Sensors
 
-![Sensor configuration options](readme/sensorconfig.png)
+![Sensors](readme/sensorconfig.png)
+
+The _Sensors_ configuration consists of a list of sensors identified by the
+plugin.
+Each sensor in the list is configured by the following set of options.
 
 __Sensor path__  
 Shows the Signal K data path identifying this sensor.
@@ -281,7 +280,44 @@ whether or not the sensor data is rendered in this way on an output chart.
 You can uncheck this option  to ensure that a sensor value which is
 inherently discrete cannot be rendered in a misleading way.
 
-    
+### Display groups
+
+![Display groups](readme/displaygroup.png)
+
+This _Display groups_ configuration consists of a list of display group entries
+creates dynamically from the display group names supplied in the _Sensors_
+configuration.
+Each display group in the list is configured by the following options.
+
+__Display group id__  
+Specifies a unique identifier for this display group.
+This value is created by the plugin from a display group identifier specified
+in the _Sensors_ list and cannot be changed.
+
+__Chart title__  
+Specifies a title to be used for this display group's webpage and in each of
+the generated charts.
+Default value is something innocuous.
+You will probably want to change this.
+
+__Chart y-axis label__  
+Specifies the text to be used as a label on the vertical axis of charts in this
+display group.
+Default value is something innocuous.
+You will probably want to change this to something that describes at least the
+units of the displayed data.
+
+__Maximum y-axis value__  
+Specifies the maximum value that can be displayed on the the y-axis.
+The default value of 0 (zero) indicates that the axis should be automatically
+scaled in response to the maximum value in the displayed data.
+
+__Chart options --> Stack graph data__  
+When checked, selects a stacked-area chart rather than a line graph.
+Defaults to unchecked.
+All data values included in the display group will be stacked except for those which
+are marked in the _Sensors_ configuration as not stackable.
+
 ## Notifications, warnings and errors
 
 ## Version history
