@@ -370,6 +370,9 @@ module.exports = function(app) {
                 field: 'ObjectField',
                 wrapClassName: 'panel-group'
             },
+            currentselector: {
+                "ui:widget": "hidden"
+            },
             list: {
 			    "ui:options": {
 				    addable: false
