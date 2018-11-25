@@ -2,11 +2,13 @@
 
 Log and chart sensor data using a round-robin database.
 
-__signalk-sensor-log__ logs sensor readings from the host Signal K Node server
-as time-series data in a round-robin database.
-Logged data is collated as one or more _chart groups_  consisting of SVG
-charts which depict selected stored readings over a range of historic
+__signalk-sensor-log__ retrieves user selected sensor data from a host
+Signal K Node server and stores them as time-series data in a round-robin
+database which is consolidated over hour, day, week, month and year
 timescales.
+
+Stored data is rendered as one or more user defined _chart groups_ which
+depict selected sensor readings over the defined timescales.
 The plugin includes a simple web application which can be used to display the
 generated charts.
 
@@ -30,9 +32,8 @@ content over time.
 __signalk-sensor-log__ uses 
 [RRDtool](https://oss.oetiker.ch/rrdtool/)
 as its database manager.
-Whilst it is possible to use __rrdtool__ directly from the command line
-to update and interrogate a database, the overheads of executing an external
-command from within the host Signal K Node server make this approach
+Although __rrdtool__ can be executed directly the overheads of running an
+external command from within a _Node_ application make this approach
 infeasible for anything other than the most trivial application.
 Fortunately, __rrdtool__ can also be used to provide a more efficient database
 management service over a Unix domain TCP socket and this plugin requires such

@@ -20,49 +20,16 @@ const fs = require('fs');
 const bacon = require('baconjs');
 const kellycolors = require('./lib/kellycolors');
 const rrdtool = require('./lib/rrdtool');
-
-const RRDFILENAME = "signalk-sensor-log.rrd";
-const RRDLOCKFILENAME = __dirname + "/" + RRDFILENAME + ".lock";
-const HOUR_GRAPH_INTERVAL = 30; // 'day' graph updated every 5 minutes
-const DAY_GRAPH_INTERVAL = 55; // 'day' graph updated every 5 minutes
-const WEEK_GRAPH_INTERVAL = 123; // 'week' graph updated every 30 minutes
-const MONTH_GRAPH_INTERVAL = 247; // 'month' graph updated every 2 hours minutes
-const YEAR_GRAPH_INTERVAL = 1441; // 'year' graph updated every day
-const GRAPH_INTERVALS = [ HOUR_GRAPH_INTERVAL, DAY_GRAPH_INTERVAL, WEEK_GRAPH_INTERVAL, MONTH_GRAPH_INTERVAL, YEAR_GRAPH_INTERVAL ];
-const CHARTMANIFEST = "manifest.json";
-const DEFAULT_DATAMAX = 10000;
-
-const DEFAULT_RRDSERVER_NAME = "127.0.0.1";
-const DEFAULT_RRDSERVER_PORT = 13900;
-const DEFAULT_RRDSERVER_OPTIONS = [ ];
-
-const DEFAULT_RRDDATABASE_UPDATEINTERVAL = 10; // Database update data frequency in seconds
-const DEFAULT_RRDDATABASE_RECREATE = false;
-const DEFAULT_RRDDATABASE_OPTIONS = [ "plug" ];
-
-const DEFAULT_CHART_DIRECTORY = "public/";
-const DEFAULT_CHART_CANVASCOLOR = "#000000";
-const DEFAULT_CHART_BACKGROUNDCOLOR = "#000000";
-const DEFAULT_CHART_FONTCOLOR = "#804000";
-
-const DEFAULT_LOGGING_CONSOLE = [ "updates", "notifications", "errors" ];
-const DEFAULT_LOGGING_SYSLOG = [ "warnings", "errors" ];
-
-const DEFAULT_SENSOR_SELECTOR = "\.(currentLevel|power)$";
-const DEFAULT_SENSOR_RESCAN = false;
-const DEFAULT_SENSOR_NAME = "";
-const DEFAULT_SENSOR_DISPLAYCOLOR = "#FFFFFF";
-const DEFAULT_SENSOR_DISPLAYGROUPS = "ALL";
-const DEFAULT_SENSOR_MULTIPLIER = 1;
-const DEFAULT_SENSOR_OPTIONS = [ "stackable" ];
-
-const DEFAULT_DISPLAYGROUP_TITLE = "Sensor values";
-const DEFAULT_DISPLAYGROUP_YLABEL = "Sensor value";
-const DEFAULT_DISPLAYGROUP_YMAX = 0;
-const DEFAULT_DISPLAYGROUP_OPTIONS = [];
+const DEFAULT = require('./lib/defaults');
+const schema = require('./lib/schema');
 
 module.exports = function(app) {
-	var CHARTDIRECTORY = null;
+    var RRDFILENAME = DEFAULT.RRDFILENAME;
+    var RRDLOCKFILENAME = DEFAULT.RRDLOCKFILENAME;
+	var CHARTDIRECTORY = DEFAULT.CHARTDIRECTORY;
+    var CHARTMANIFEST = DEFAULT.CHARTMANIFEST;
+    var GRAPH_INTERVALS = [ DEFAULT.HOUR_GRAPH_INTERVAL, DEFAULT.DAY_GRAPH_INTERVAL, DEFAULT.WEEK_GRAPH_INTERVAL, DEFAULT.MONTH_GRAPH_INTERVAL, DEFAULT.YEAR_GRAPH_INTERVAL ];
+
 	var plugin = {};
 	var unsubscribes = [];
 
@@ -70,353 +37,8 @@ module.exports = function(app) {
 	plugin.name = "Sensor Log";
 	plugin.description = "Log and chart sensor readings using a round-robin database.";
 
-	plugin.schema = function() {
-		return({	
-			type: "object",
-			properties: {
-                rrdserver: {
-                    type: "object",
-                    properties: {
-                        name: {
-                            title: "RRD server hostname",
-                            type: "string",
-                            default: DEFAULT_RRDSERVER_NAME
-                        },
-                        port: {
-                            title: "RRD server port",
-                            type: "number",
-                            default: DEFAULT_RRDSERVER_PORT
-                        },
-				        options: {
-					        title: "RRD server options",
-					        type: "array",
-                            default: DEFAULT_RRDSERVER_OPTIONS,
-					        items: {
-						        type: "string",
-						        enum: [ "logeverything" ],
-						        enumNames: [ "Log all database activity" ]
-					        },
-					        uniqueItems: true
-                        }
-                    }
-				},
-                rrddatabase: {
-                    type: "object",
-                    properties: {
-                        updateinterval: {
-                            title: "Database update interval",
-                            type: "number",
-                            default: DEFAULT_RRDDATABASE_UPDATEINTERVAL
-                        },
-                        recreate: {
-                            title: "Re-create database",
-                            type: "boolean",
-                            default: DEFAULT_RRDDATABASE_RECREATE
-                        },
-                        options: {
-                            title: "RRD database options",
-                            type: "array",
-                            default: DEFAULT_RRDDATABASE_OPTIONS,
-                            items: {
-                                type: "string",
-                                enum: [ "plug" ],
-                                enumNames: [ "Plug data holes" ],
-                            },
-                            uniqueItems: true
-                        }
-                    }
-                },
-                chart: {
-                    type: "object",
-                    properties: {
-				        directory: {
-					        title: "Chart directory",
-					        type: "string",
-					        default: DEFAULT_CHART_DIRECTORY
-				        },
-                        canvascolor: {
-							title: "Color to use for chart canvas",
-							type: "string",
-							default: DEFAULT_CHART_CANVASCOLOR
-                        },
-                        backgroundcolor: {
-							title: "Color to use for chart background",
-							type: "string",
-							default: DEFAULT_CHART_BACKGROUNDCOLOR
-                        },
-                        fontcolor: {
-							title: "Color to use for chart foreground",
-							type: "string",
-							default: DEFAULT_CHART_FONTCOLOR
-                        }
-                    }
-                },
-                logging: {
-                    type: "object",
-                    properties: { 
-				        console: {
-					        title: "Report the following events to Signal K server console",
-					        type: "array",
-                            default: DEFAULT_LOGGING_CONSOLE,
-					        items: {
-						        type: "string",
-						        enum: [ "updates", "notifications", "warnings", "errors" ],
-						        enumNames: [ "Database updates", "Notifications", "Warnings", "Errors" ]
-                            },
-					        uniqueItems: true
-                        },
-                        syslog: {
-					        title: "Report the following events to system log",
-					        type: "array",
-                            default: DEFAULT_LOGGING_SYSLOG,
-					        items: {
-						        type: "string",
-						        enum: [ "updates", "notifications", "warnings", "errors" ],
-						        enumNames: [ "Database updates", "Notifications", "Warnings", "Errors" ]
-                            },
-					        uniqueItems: true
-                        }
-                    }
-				},
-				sensor: {
-                    type: "object",
-                    properties: {
-                        selector: {
-                            title: "Regex to select sensor path",
-                            type: "string",
-                            default: DEFAULT_SENSOR_SELECTOR
-                        },
-                        currentselector: {
-                            type: "string",
-                            default: DEFAULT_SENSOR_SELECTOR
-                        },
-                        rescan: {
-                            title: "Scan host server and re-build sensor list",
-                            type: "boolean",
-                            default: DEFAULT_SENSOR_RESCAN
-                        },
-                        list: {
-					        title: "Sensor list",
-					        type: "array",
-					        default: loadSensors(DEFAULT_SENSOR_SELECTOR),
-				        	items: {
-						        type: "object",
-						        properties: {
-							        path: {
-								        title: "Sensor path",
-								        type: "string",
-								        default: ""
-							        },
-							        name: {
-								        title: "Sensor name",
-								        type: "string",
-								        default: DEFAULT_SENSOR_NAME
-							        },
-							        displaycolor: {
-								        title: "Color to use when rendering this sensor",
-								        type: "string",
-								        default: DEFAULT_SENSOR_DISPLAYCOLOR
-							        },
-							        displaygroups: {
-								        title: "Display groups which include this sensor",
-								        type: "string",
-								        default: DEFAULT_SENSOR_DISPLAYGROUPS
-							        },
-                                    multiplier: {
-                                        title: "Multiplier for sensor values",
-                                        type: "number",
-                                        default: DEFAULT_SENSOR_MULTIPLIER
-                                    },
-                                    options: {
-					                    title: "Sensor options",
-					                    type: "array",
-                                        default: DEFAULT_SENSOR_OPTIONS,
-					                    items: {
-						                    type: "string",
-						                    enum: [ "stackable" ],
-						                    enumNames: [ "Stackable?" ]
-					                    },
-					                    uniqueItems: true
-                                    }
-                                }
-						    }
-                        }
-					}
-				},
-				displaygroup: {
-                    type: "object",
-                    properties: {
-					    list: {
-                            title: "Display groups",
-					        type: "array",
-					        default: generateDisplayGroups(loadSensors()),
-					        items: {
-						        type: "object",
-						        properties: {
-							        id: {
-								        title: "Display group id",
-								        type: "string",
-								        default: ""
-							        },
-							        title: {
-								        title: "Chart title",
-								        type: "string",
-								        default: DEFAULT_DISPLAYGROUP_TITLE
-							        },
-							        ylabel: {
-								        title: "Chart y-axis label",
-								        type: "string",
-								        default: DEFAULT_DISPLAYGROUP_YLABEL
-							        },
-                                    ymax: {
-                                        title: "Maximum y-axis value",
-                                        type: "number",
-                                        default: DEFAULT_DISPLAYGROUP_YMAX
-                                    },
-                                    options: {
-					                    title: "Chart options",
-					                    type: "array",
-                                        default: DEFAULT_DISPLAYGROUP_OPTIONS,
-					                    items: {
-						                    type: "string",
-						                    enum: [ "stack" ],
-						                    enumNames: [ "Stack graph data" ]
-					                    },
-					                    uniqueItems: true
-                                    }
-                                }
-					        },
-					        uniqueItems: true
-				        }
-                    }
-                }
-			}
-		});
-	}
- 
-	plugin.uiSchema = {
-        rrdserver: {
-            "ui:field": "collapsible",
-            collapse: {
-                field: 'ObjectField',
-                wrapClassName: 'panel-group'
-            },
-       	    options: {
-			    "ui:widget": {
-				    component: "checkboxes",
-				    options: {
-					    inline: true
-				    }
-			    }
-       	    }
-        },
-        rrddatabase: {
-            "ui:field": "collapsible",
-            collapse: {
-                field: 'ObjectField',
-                wrapClassName: 'panel-group'
-            },
-       	    options: {
-			    "ui:widget": {
-				    component: "checkboxes",
-				    options: {
-					    inline: true
-				    }
-			    }
-       	    }
-       	},
-        chart: {
-            "ui:field": "collapsible",
-            collapse: {
-                field: 'ObjectField',
-                wrapClassName: 'panel-group'
-            },
-			canvascolor: {
-				"ui:widget": "color"
-			},
-			backgroundcolor: {
-				"ui:widget": "color"
-			},
-			fontcolor: {
-				"ui:widget": "color"
-			},
-        },
-        logging: {
-            "ui:field": "collapsible",
-            collapse: {
-                field: 'ObjectField',
-                wrapClassName: 'panel-group'
-            },
-       	    console: {
-			    "ui:widget": {
-				    component: "checkboxes",
-				    options: {
-					    inline: true
-				    }
-			    }
-       	    },
-       	    syslog: {
-			    "ui:widget": {
-				    component: "checkboxes",
-				    options: {
-					    inline: true
-				    }
-			    }
-       	    }
-        },
-		sensor: {
-            "ui:field": "collapsible",
-            collapse: {
-                field: 'ObjectField',
-                wrapClassName: 'panel-group'
-            },
-            currentselector: {
-                "ui:widget": "hidden"
-            },
-            list: {
-			    "ui:options": {
-				    addable: false
-			    },
-			    items: {
-				    path: {
-					    "ui:disabled": true
-				    },
-				    displaycolor: {
-					    "ui:widget": "color"
-				    },
-                    isratio: {
-                    },
-                    options: {
-			            "ui:widget": {
-				            component: "checkboxes",
-				            options: {
-					            inline: true
-				            }
-			            }
-                    }
-                }
-			}
-		},
-        displaygroup: {
-            "ui:field": "collapsible",
-            collapse: {
-                field: 'ObjectField',
-                wrapClassName: 'panel-group'
-            },
-            list: {
-                items: {
-       	            options: {
-			            "ui:widget": {
-				            component: "checkboxes",
-				            options: {
-					            inline: true
-				            }
-			            }
-       	            }
-                }
-            }
-	    }
-    }
+	plugin.schema = generateSchema();
+	plugin.uiSchema = generateUiSchema();
 
 	plugin.start = function(options) {
         //////////////////////////////////////////////////////////////////////
@@ -510,7 +132,7 @@ module.exports = function(app) {
 		if (!fs.existsSync(RRDLOCKFILENAME)) {
 			logNN("Creating new database '" + RRDFILENAME + "'");
 			try {
-                rrdtool.createDatabase(RRDFILENAME, options.rrddatabase.updateinterval, 0, DEFAULT_DATAMAX, options.sensor.list.map(v => makeIdFromPath(v['path'])));
+                rrdtool.createDatabase(RRDFILENAME, options.rrddatabase.updateinterval, 0, DEFAULT.DATAMAX, options.sensor.list.map(v => makeIdFromPath(v['path'])));
                 fs.closeSync(fs.openSync(RRDLOCKFILENAME, 'w'));
 			} catch(err) {
 			    logEE("Error creating database '" + RRDFILENAME + "'", "Error creating database '" + RRDFILENAME + "' (" + err.toString() + ")"); 
@@ -530,7 +152,6 @@ module.exports = function(app) {
 		logNN("Connected to " + streams.length  + " sensor streams");
 
         unsubscribes.push(bacon.interval((1000 * options.rrddatabase.updateinterval), 0).onValue(function(t) {
-            tick++;
 	    	var now = Math.floor(Date.now() / 60000);
 		    bacon.zipAsArray(streams).onValue(function(v) {
                 try {
@@ -559,10 +180,10 @@ module.exports = function(app) {
 	                            "period": period,
 	                            "title": displaygroup['title'] + " (over past " + period + ")",
 	                            "ylabel": displaygroup['ylabel'],
-                                "ymax": displaygroup['ymax']
+                                "ymax": displaygroup['ymax'],
+                                "linetypes": dgsensors.map(s => ((displaygroup['options'].includes('stack') && s['options'].includes('stackable'))?'AREA':'LINE'))
                             };
                             if (displaygroup['options'].includes('stack')) {
-                                properties.linetypes = dgsensors.map(s => (s['options'].includes('stackable')?'AREA':'LINE2'));
                                 properties.stack = dgsensors.map(s => s['options'].includes('stackable'));
                             }
 	                        rrdtool.createChart(
@@ -582,6 +203,7 @@ module.exports = function(app) {
                     logWW("Error creating chart manifest");
                 }    
 	    	}
+            tick++;
 		}));
 	}
 
@@ -613,9 +235,9 @@ module.exports = function(app) {
                     "path": path,
                     "name": (existing === undefined)?makeIdFromPath(path):existing['name'],
                     "displaycolor": (existing === undefined)?kellycolors.getNextColor():existing['displaycolor'],
-		            "displaygroups": (existing === undefined)?DEFAULT_SENSOR_DISPLAYGROUPS:existing['displaygroups'],
-                    "multiplier": (existing === undefined)?DEFAULT_SENSOR_MULTIPLIER:existing['multiplier'],
-                    "options": (existing === undefined)?DEFAULT_SENSOR_OPTIONS:existing['options']
+		            "displaygroups": (existing === undefined)?DEFAULT.SENSOR_DISPLAYGROUPS:existing['displaygroups'],
+                    "multiplier": (existing === undefined)?DEFAULT.SENSOR_MULTIPLIER:existing['multiplier'],
+                    "options": (existing === undefined)?DEFAULT.SENSOR_OPTIONS:existing['options']
                 });
             });
         return(retval);
@@ -635,10 +257,10 @@ module.exports = function(app) {
             var existing = (displaygroups !== undefined)?displaygroups.filter(dg => (dg['id'] == definedgroupname))[0]:undefined;;
             retval.push({
                 id: definedgroupname,
-                title: (existing === undefined)?DEFAULT_DISPLAYGROUP_TITLE:existing['title'],
-                ylabel: (existing === undefined)?DEFAULT_DISPLAYGROUP_YLABEL:existing['ylabel'],
-                ymax: (existing === undefined)?DEFAULT_DISPLAYGROUP_YMAX:existing['ymax'],
-                options: (existing === undefined)?DEFAULT_DISPLAYGROUP_OPTIONS:existing['options']
+                title: (existing === undefined)?DEFAULT.DISPLAYGROUP_TITLE:existing['title'],
+                ylabel: (existing === undefined)?DEFAULT.DISPLAYGROUP_YLABEL:existing['ylabel'],
+                ymax: (existing === undefined)?DEFAULT.DISPLAYGROUP_YMAX:existing['ymax'],
+                options: (existing === undefined)?DEFAULT.DISPLAYGROUP_OPTIONS:existing['options']
             });
 		});
 
@@ -666,6 +288,357 @@ module.exports = function(app) {
 	function logN(terse) { log("notification", terse, undefined); }
 	function logNN(terse, verbose) { log("notice", terse, (verbose === undefined)?terse:verbose); }
 
+    function generateSchema() {
+		return({	
+			type: "object",
+			properties: {
+                rrdserver: {
+                    type: "object",
+                    properties: {
+                        name: {
+                            title: "RRD server hostname",
+                            type: "string",
+                            default: DEFAULT.RRDSERVER_NAME
+                        },
+                        port: {
+                            title: "RRD server port",
+                            type: "number",
+                            default: DEFAULT.RRDSERVER_PORT
+                        },
+				        options: {
+					        title: "RRD server options",
+					        type: "array",
+                            default: DEFAULT.RRDSERVER_OPTIONS,
+					        items: {
+						        type: "string",
+						        enum: [ "logeverything" ],
+						        enumNames: [ "Log all database activity" ]
+					        },
+					        uniqueItems: true
+                        }
+                    }
+				},
+                rrddatabase: {
+                    type: "object",
+                    properties: {
+                        updateinterval: {
+                            title: "Database update interval",
+                            type: "number",
+                            default: DEFAULT.RRDDATABASE_UPDATEINTERVAL
+                        },
+                        recreate: {
+                            title: "Re-create database",
+                            type: "boolean",
+                            default: DEFAULT.RRDDATABASE_RECREATE
+                        },
+                        options: {
+                            title: "RRD database options",
+                            type: "array",
+                            default: DEFAULT.RRDDATABASE_OPTIONS,
+                            items: {
+                                type: "string",
+                                enum: [ "plug" ],
+                                enumNames: [ "Plug data holes" ],
+                            },
+                            uniqueItems: true
+                        }
+                    }
+                },
+                chart: {
+                    type: "object",
+                    properties: {
+				        directory: {
+					        title: "Chart directory",
+					        type: "string",
+					        default: DEFAULT.CHART_DIRECTORY
+				        },
+                        canvascolor: {
+							title: "Color to use for chart canvas",
+							type: "string",
+							default: DEFAULT.CHART_CANVASCOLOR
+                        },
+                        backgroundcolor: {
+							title: "Color to use for chart background",
+							type: "string",
+							default: DEFAULT.CHART_BACKGROUNDCOLOR
+                        },
+                        fontcolor: {
+							title: "Color to use for chart foreground",
+							type: "string",
+							default: DEFAULT.CHART_FONTCOLOR
+                        }
+                    }
+                },
+                logging: {
+                    type: "object",
+                    properties: { 
+				        console: {
+					        title: "Report the following events to Signal K server console",
+					        type: "array",
+                            default: DEFAULT.LOGGING_CONSOLE,
+					        items: {
+						        type: "string",
+						        enum: [ "updates", "notifications", "warnings", "errors" ],
+						        enumNames: [ "Database updates", "Notifications", "Warnings", "Errors" ]
+                            },
+					        uniqueItems: true
+                        },
+                        syslog: {
+					        title: "Report the following events to system log",
+					        type: "array",
+                            default: DEFAULT.LOGGING_SYSLOG,
+					        items: {
+						        type: "string",
+						        enum: [ "updates", "notifications", "warnings", "errors" ],
+						        enumNames: [ "Database updates", "Notifications", "Warnings", "Errors" ]
+                            },
+					        uniqueItems: true
+                        }
+                    }
+				},
+				sensor: {
+                    type: "object",
+                    properties: {
+                        selector: {
+                            title: "Regex to select sensor path",
+                            type: "string",
+                            default: DEFAULT.SENSOR_SELECTOR
+                        },
+                        currentselector: {
+                            type: "string",
+                            default: DEFAULT.SENSOR_SELECTOR
+                        },
+                        rescan: {
+                            title: "Scan host server and re-build sensor list",
+                            type: "boolean",
+                            default: DEFAULT.SENSOR_RESCAN
+                        },
+                        list: {
+					        title: "Sensor list",
+					        type: "array",
+					        default: loadSensors(DEFAULT.SENSOR_SELECTOR),
+				        	items: {
+						        type: "object",
+						        properties: {
+							        path: {
+								        title: "Sensor path",
+								        type: "string",
+								        default: ""
+							        },
+							        name: {
+								        title: "Sensor name",
+								        type: "string",
+								        default: DEFAULT.SENSOR_NAME
+							        },
+							        displaycolor: {
+								        title: "Color to use when rendering this sensor",
+								        type: "string",
+								        default: DEFAULT.SENSOR_DISPLAYCOLOR
+							        },
+							        displaygroups: {
+								        title: "Display groups which include this sensor",
+								        type: "string",
+								        default: DEFAULT.SENSOR_DISPLAYGROUPS
+							        },
+                                    multiplier: {
+                                        title: "Multiplier for sensor values",
+                                        type: "number",
+                                        default: DEFAULT.SENSOR_MULTIPLIER
+                                    },
+                                    options: {
+					                    title: "Sensor options",
+					                    type: "array",
+                                        default: DEFAULT.SENSOR_OPTIONS,
+					                    items: {
+						                    type: "string",
+						                    enum: [ "stackable" ],
+						                    enumNames: [ "Stackable?" ]
+					                    },
+					                    uniqueItems: true
+                                    }
+                                }
+						    }
+                        }
+					}
+				},
+				displaygroup: {
+                    type: "object",
+                    properties: {
+					    list: {
+                            title: "Display groups",
+					        type: "array",
+					        default: generateDisplayGroups(loadSensors()),
+					        items: {
+						        type: "object",
+						        properties: {
+							        id: {
+								        title: "Display group id",
+								        type: "string",
+								        default: ""
+							        },
+							        title: {
+								        title: "Chart title",
+								        type: "string",
+								        default: DEFAULT.DISPLAYGROUP_TITLE
+							        },
+							        ylabel: {
+								        title: "Chart y-axis label",
+								        type: "string",
+								        default: DEFAULT.DISPLAYGROUP_YLABEL
+							        },
+                                    ymax: {
+                                        title: "Maximum y-axis value",
+                                        type: "number",
+                                        default: DEFAULT.DISPLAYGROUP_YMAX
+                                    },
+                                    options: {
+					                    title: "Chart options",
+					                    type: "array",
+                                        default: DEFAULT.DISPLAYGROUP_OPTIONS,
+					                    items: {
+						                    type: "string",
+						                    enum: [ "stack" ],
+						                    enumNames: [ "Stack graph data" ]
+					                    },
+					                    uniqueItems: true
+                                    }
+                                }
+					        },
+					        uniqueItems: true
+				        }
+                    }
+                }
+			}
+		});
+    }
+
+    function generateUiSchema() {
+        return(
+            {
+	            rrdserver: {
+	                "ui:field": "collapsible",
+	                collapse: {
+	                    field: 'ObjectField',
+	                    wrapClassName: 'panel-group'
+	                },
+	       	        options: {
+				        "ui:widget": {
+					        component: "checkboxes",
+					        options: {
+						        inline: true
+					        }
+				        }
+	       	        }
+	            },
+		        rrddatabase: {
+		            "ui:field": "collapsible",
+		            collapse: {
+		                field: 'ObjectField',
+		                wrapClassName: 'panel-group'
+		            },
+		       	    options: {
+					    "ui:widget": {
+						    component: "checkboxes",
+						    options: {
+							    inline: true
+						    }
+					    }
+		       	    }
+		       	},
+		        chart: {
+		            "ui:field": "collapsible",
+		            collapse: {
+		                field: 'ObjectField',
+		                wrapClassName: 'panel-group'
+		            },
+					canvascolor: {
+						"ui:widget": "color"
+					},
+					backgroundcolor: {
+						"ui:widget": "color"
+					},
+					fontcolor: {
+						"ui:widget": "color"
+					},
+		        },
+		        logging: {
+		            "ui:field": "collapsible",
+		            collapse: {
+		                field: 'ObjectField',
+		                wrapClassName: 'panel-group'
+		            },
+		       	    console: {
+					    "ui:widget": {
+						    component: "checkboxes",
+						    options: {
+							    inline: true
+						    }
+					    }
+		       	    },
+		       	    syslog: {
+					    "ui:widget": {
+						    component: "checkboxes",
+						    options: {
+							    inline: true
+						    }
+					    }
+		       	    }
+		        },
+				sensor: {
+		            "ui:field": "collapsible",
+		            collapse: {
+		                field: 'ObjectField',
+		                wrapClassName: 'panel-group'
+		            },
+		            currentselector: {
+		                "ui:widget": "hidden"
+		            },
+		            list: {
+					    "ui:options": {
+						    addable: false
+					    },
+					    items: {
+						    path: {
+							    "ui:disabled": true
+						    },
+						    displaycolor: {
+							    "ui:widget": "color"
+						    },
+		                    isratio: {
+		                    },
+		                    options: {
+					            "ui:widget": {
+						            component: "checkboxes",
+						            options: {
+							            inline: true
+						            }
+					            }
+		                    }
+		                }
+					}
+				},
+		        displaygroup: {
+		            "ui:field": "collapsible",
+		            collapse: {
+		                field: 'ObjectField',
+		                wrapClassName: 'panel-group'
+		            },
+		            list: {
+		                items: {
+		       	            options: {
+					            "ui:widget": {
+						            component: "checkboxes",
+						            options: {
+							            inline: true
+						            }
+					            }
+		       	            }
+		                }
+		            }
+		        }
+           }
+        );
+    }
 
 	return plugin;
 }
