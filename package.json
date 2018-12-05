@@ -10,6 +10,7 @@
     "type": "git",
     "url": "git+https://github.com/preeve9534/signalk-sensor-log.git"
   },
+  "signalk-plugin-enabled-by-default": true,
   "keywords": [
     "signalk-node-server-plugin",
     "signalk-webapp",

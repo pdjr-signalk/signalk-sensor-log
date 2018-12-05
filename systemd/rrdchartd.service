@@ -1,0 +1,12 @@
+[Unit]
+Description=RRD Chart Generation Daemon for signalk-sensor-log
+Requires=rrdchartd.socket
+
+[Service]
+EnvironmentFile=/root/.signalk/node_modules/signalk-sensor-log/systemd/service.conf
+Restart=always
+WorkingDirectory=${RRDCHARTD_WORKING_DIRECTORY}
+ExecStart=/root/.signalk/node_modules/signalk-sensor-log/makechart.py - -d ${RRD_FILE} -c ${RRDCHARTD_CONFIG_FILE}
+
+[Install]
+WantedBy=multi-user.target

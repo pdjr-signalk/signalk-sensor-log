@@ -1,10 +1,15 @@
 const CONFIG_FILE = "config.json";
 const MANIFEST_FILE = "manifest.json";
+const CHARTDIR = "charts/";
 
 var config = null;
 var manifest = null;
 var index = 0;
 
+var tcpclient = new TcpClient('192.168.1.1', 9999);
+tcpclient.connect(function() {
+    console.log("connected");
+});
 /**
  * Initialises the page by setting the page heading and attempting to load the
  * page manifest from MANIFEST_FILE. If the load is successful, then the
@@ -52,7 +57,7 @@ function generateThumbnails(group) {
             filename = group + "." + config.images[i].filename;
             comment = config.images[i].comment;
             content += "<div id=\"" + id + "\" class=\"thumbnail\" onClick=\"goto('" + group + "','" + id + "');\" title=\"" + comment + "\">\n";
-            content += "<img src=\"" + filename + "\" alt=\"" + comment + "\" onerror=\"deleteElement('" + id + "');\"/>\n";
+            content += "<img src=\"" + CHARTDIR + filename + "\" alt=\"" + comment + "\" onerror=\"deleteElement('" + id + "');\"/>\n";
             content += "<p>\n";
             content += id; 
             content += "</p>\n";
@@ -105,7 +110,7 @@ function loadImage(group, chart) {
     console.log("loadImage " + group + " " + chart);
     if ((container = document.getElementById('lightbox')) != null) {
         var content = "";
-        content += "<img src=\"" + group + "." + config.images.reduce((a,i) => ((i['id'] == chart)?i['filename']:a), "") + "\"/>\n";
+        content += "<img src=\"" + CHARTDIR + group + "." + config.images.reduce((a,i) => ((i['id'] == chart)?i['filename']:a), "") + "\"/>\n";
         content += "<div class=\"prev\" onClick=\"prev();\">&lt;</div>\n"
         content += "<div class=\"next\" onClick=\"next();\">&gt;</div>\n";
         container.innerHTML = content;

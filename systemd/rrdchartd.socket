@@ -1,0 +1,10 @@
+[Unit]
+Description=Socket definition for makechart.service
+
+[Socket]
+ListenStream=9999
+Accept=no
+
+[Install]
+WantedBy=sockets.target
+
