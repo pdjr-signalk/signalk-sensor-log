@@ -7,10 +7,15 @@ Signal K Node server and stores them as time-series data in a round-robin
 database which is consolidated over hour, day, week, month and year
 timescales.
 
-Stored data is rendered as one or more user defined _chart groups_ which
+Stored data can be rendered as one or more user defined _chart groups_ which
 depict selected sensor readings over the defined timescales.
-The plugin includes a simple web application which can be used to display the
+The plugin includes a simple web application which can be used to display any
 generated charts.
+
+Data storage and rendering services are implemented as stand-alone daemons
+which run as separate processes from the host Signal K Node Server and have
+minimal impact upon server operation even when many sensor channels are being
+logged.
 
 Some examples of the type of data logging that can be undertaken are
 illustrated below.
@@ -27,12 +32,18 @@ content over time.
 
 ![Webapp_screenshot](readme/tanks.png)
 
+__Example 3__
+NMEA switchbank state changes over time.
+
 ## Overview and system requirements
 
-__signalk-sensor-log__ uses 
+__signalk-sensor-log__ uses the
 [RRDtool](https://oss.oetiker.ch/rrdtool/)
-as its database manager, relying upon __rrdcached__ as its database management
-service. 
+database management system, using both the __rrdtool__ and  __rrdcached__
+applications.
+The plugin includes a standalone chart generator implemented in Python which
+requires a free TCP socket.
+The host machine must implement __systemd__.
 
 Against this background, use of __signalk-sensor-log__ requires:
 
@@ -64,113 +75,33 @@ Against this background, use of __signalk-sensor-log__ requires:
    The command `cd ~/.signalk/node_modules/signalk-sensor-log` should do this
    if you are logged in as _root_. 
 
-3. Copy the `rrdsrv` unit file into your __systemd__ configuration directory.
-Execute the command `sudo bash extras/install.sh` to install the required
-   packages and modify your system configuration to support the RRD database
-   service. 
+3. The supporting update and graph generation services must now be installed.
 
-   Be aware that this script will modify system configuration files.
-   If you prefer to make such changes yourself, then you need to:
+   Begin by reviewing the file `systemd/system.conf` which defines most of the
+   important system configuration values.
+   Probably, there is nothing to change, but you should check that the TCP
+   port number used for the graph generation service (the default is 9999)
+   does not conflict with your system configuration: change it if it does.
 
-   1. Install __xinetd__
-   2. Install __rrdtool__
-   3. Define a name (eg: 'rrdsrv') and port (eg: 31900) for the RRD service
-      `/etc/services`. 
-   4. Create a new Add system user (eg: 'rrdsrv') and group (eg: 'rrdsrv')
-      to `/etc/passwd` and `/etc/group`.
-   5. Create a working directory for the new service (eg: /var/rrdsrv).
-   6. Create a directory in which the new service can store charts requested
-      by this plugin (eg: /var/rrdsrv/signalk-sensor-log).
-   7. Change the ownership of  the directories created at (5) & (6) to
-      the user and group created at (4).
-   8. Add a new service definition to /etc/xinetd.d 
+   You can then execute the command `bash configure.sh` which will simply
+   create the file `install.sh`.
+   It is this script which will install the two supporting services by:
+
+   1. Creating a new system user and group rrd:rrd by modifying `/etc/passwd`
+      and `/etc/group` using the `useradd` command.
+   2. Creating a working directory (`/var/rrd/`) for the update service and a
+      sub-directory (`var/rrd/signalk-sensor-log/`) for the chart generation
+      service, both owned by the rrd:rrd user.
+   3. Creating links in `/etc/systemd/system/` which point to the configuration
+      files in the plugin's `systemd` folder.
+   4. Executing `systemctl daemon-reload` to register the changes made at (3).
+
+   If you are happy to modify your system in this way, then execute the command
+   `bash install.sh`.
       
-
-1. Install __xinetd__ on your Signal K Node server host using your system's
-   package manager.
-   ```
-   $> sudo apt-get install xinetd`.
-   ```
-   
-2. Similarly, install __rrdtool__ on your Signal K Node server host.
-   ```
-   $> sudo apt-get install rrdtool
-   ```
-
-
-4. Configure __rrdtool__ as an Internet service and assign the service to a
-   free TCP port.
-   I recommend calling this new service 'rrdsrv' and suggest using port number
-   13900 which is usually unassigned on Linux systems.
-
-   You can check if 'rrdsrv' is in use as a service name by entering the
-   command `grep rrdsrv /etc/services`.
-   If this command issues no output, then the service name is available.
-   If you get some output, then someone has trod this path before and you
-   need to find out more before proceeding.
-
-   You can similarly check if 13900 is an allocated port number by entering
-   the command `grep 13900 /etc/services`.
-   If this command issues no output, then the port number is available.
-   If you get some output, then try port 13901 and so on until you locate an
-   unused port number.
-
-   For a new install I would expect to see:
-   ```
-   $> grep rrdsrv /etc/services
-   $> grep 13900 /etc/services
-   $>
-   ```
-   Once you have identified a unique service name and an unused TCP port, you
-   can register a new service by using your favourite text editor to insert
-   the following line into `/etc/services`:
-   ```
-   rrdsrv   13900/tcp   # RRDTool service
-   ```
-   Note that entries in the `/etc/services` file are ordered by port number
-   and it is good practice to maintain this sequencing.
-
-5. Create a user and group who will own the executing RRD server and its
-   associated data.
-   I chose to name this user and group 'rrdsrv'.
-   ```
-   $> sudo useradd -r rrdsrv
-   $> sudo usermod -s /bin/false rrdsrv
-   ```
-
-6. Allocate a working directory for the RRD server and link this plugin and
-   link the plugin sub-directory into the plugin webapp folder.
-   I chose to create a server working directory in `/var/` and decided to
-   call it 'rrdsrv'.
-   The working directory for this plugin I decided to call 'signalk-sensor-log'.
-   ```
-   $> sudo mkdir -p /var/rrds/signalk-sensor-log
-   $> sudo chown -R rrdsrv:rrdsrv /var/rrds
-   $> sudo ln -s /var/rrds/signalk-sensor-log ~/.signalk/node_modules/signalk-sensor-log/public/charts
-   ```
-
-7. Add the new service to __xinetd__.
-   If you have followed the above recipe exactly, then you can simply
-   copy the specimen configuration file from the plugin download directory.
-   ```
-   cd ~/.signalk/node_modules/signalk-sensor-log
-   sudo cp /extras/etc/xinetd.d/rrdsrv /etc/xinetd.d
-   ```
-
-8. Restart __xinetd__ and check the service is working.
-   ```
-   $> sudo /etc/init.d/xinetd restart
-   $> telnet localhost rrdsrv
-   ```
-   You should recieve a prompt from the RRD server (you can type `quit` to get
-   back to the system prompt).
-   If you receive an error message, then something has gone wrong and you need
-   to review your work and investigate further.
-
 That's it.
-You can now proceed to the next section which describes configuring and usings
+You can now proceed to the next section which describes configuring and using
  __signalk-sensor-log__.
-
 
 ## Usage
 
@@ -183,6 +114,8 @@ The configuration screen consist of a number of collapsible sections, each
 concerned with some aspect of the plugin's operation.
 Proceed with first configuration by:
 
+1. Expand the _rrdservices_ configuration tab and confirm that the service
+   connection settings conform to the connection
 1. Expand the _rrdserver_ configuration tab and confirm that the server
    connection details correspond with the service configuration you
    implemented in the previous section.

@@ -77,8 +77,6 @@ module.exports = function(app) {
 			return;
 		}
 
-        // TODO - check that database TCP socket is active.
-
         //////////////////////////////////////////////////////////////////////
         // HOUSEKEEPING //////////////////////////////////////////////////////
         //////////////////////////////////////////////////////////////////////
@@ -127,8 +125,8 @@ module.exports = function(app) {
                     0,
                     _.DATAMAX,
                     paths.map(v => makeIdFromPath(v)),
-                    "rrd",
-                    "rrd"
+                    _.RRDUSER,
+                    _.RRDGROUP
                 );
                 options.sensor.dbpaths = paths; 
 			} catch(err) {
