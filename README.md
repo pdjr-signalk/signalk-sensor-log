@@ -45,21 +45,149 @@ content over time.
 __Example 3__
 NMEA switchbank state changes over time.
 
-#include readme/system-requirements.md
+## Overview and system requirements
 
-#include readme/installation.md
+__signalk-sensor-log__ uses the
+[RRDtool](https://oss.oetiker.ch/rrdtool/)
+database management system, using both the __rrdtool__ and  __rrdcached__
+applications.
+The plugin includes a standalone chart generator implemented in Python which
+requires a free TCP socket.
+The host machine must implement __systemd__.
 
-#include readme/use.md
+Against this background, use of __signalk-sensor-log__ requires:
+
+1. __rrdtool__ (part of most Linux distributions).
+
+2. __rrdcached__ (also part of most Linux distribuions).
+
+3. Sufficient storage to hold the round-robin database and the generated image
+   files.
+   Each monitored data channel requires around 4MB of database storage and
+   there is a small system overhead of about 2MB.
+   Each chart group consists of five SVG image files which in total occupy
+   about 0.6MB.
+
+## Installation
+
+1. Download and install __rrdtool__ and __rrdcached__ using your operating
+   system's package manager.
+   On my system `sudo apt-get install rrdtool rrdcached` does the trick.
+
+2. Download and install __signalk-sensor-log__ using the _Appstore_ link
+   in your Signal K Node server console.
+   The plugin can also be downloaded from the
+   [project homepage](https://github.com/preeve9534/signalk-sensor-log)
+   and installed using
+   [these instructions](https://github.com/SignalK/signalk-server-node/blob/master/SERVERPLUGINS.md).
+
+2. Change to the __signalk-sensor-log__ install directory.
+   The command `cd ~/.signalk/node_modules/signalk-sensor-log` should do this
+   if you are logged in as _root_. 
+
+3. Use your favourite editor to review and, if necessary, amend the service
+   configuration file `systemd/services.conf`.
+   The file is commented to give guidance on what changes may be required -
+   although in most situations, no changes will be necessary.
+
+4. Execute the command `bash configure.sh` which will simply create the file
+   `install.sh`.
+   It is this script which will install the two supporting services by:
+
+   1. Creating a new system user and group rrd:rrd by modifying `/etc/passwd`
+      and `/etc/group` using the `useradd` command.
+   2. Creating a working directory (`/var/rrd/`) for the update service and a
+      sub-directory (`var/rrd/signalk-sensor-log/`) for the chart generation
+      service, both owned by the rrd:rrd user.
+   3. Creating links in `/etc/systemd/system/` which point to the configuration
+      files in the plugin's `systemd` folder.
+   4. Executing `systemctl daemon-reload` to register the changes made at (3).
+
+5. If you are happy to modify your system in this way, then execute the command
+   `bash install.sh`.
+      
+That's it.
+You can now proceed to the next section which describes configuring and using
+ __signalk-sensor-log__.
+## Installation
+
+1. Download and install __rrdtool__ and __rrdcached__ using your operating
+   system's package manager.
+   On my system `sudo apt-get install rrdtool rrdcached` does the trick.
+
+2. Download and install __signalk-sensor-log__ using the _Appstore_ link
+   in your Signal K Node server console.
+
+   The plugin can also be downloaded from the
+   [project homepage](https://github.com/preeve9534/signalk-sensor-log)
+   and installed using
+   [these instructions](https://github.com/SignalK/signalk-server-node/blob/master/SERVERPLUGINS.md).
+
+3. Change to the __signalk-sensor-log__ install directory.
+   The command `cd ~/.signalk/node_modules/signalk-sensor-log` should do this
+   if you are logged in as _root_. 
+
+4. Use your favourite editor to review and, if necessary, amend the service
+   configuration file `systemd/services.conf`.
+
+   The default file defines eight variables in the following way.
+   ```
+   RRD_USER=rrd
+   RRD_GROUP=rrd
+   RRDCACHED_WORKING_DIRECTORY=/var/rrd/signalk-sensor-log
+   RRDCACHED_SOCKET=rrdcached.sock
+   RRDCACHED_PID=rrdcached.pid
+   RRDCHARTD_WORKING_DIRECTORY=/var/rrd/signalk-sensor-log/charts
+   RRDCHARTD_PORT=9999
+   RRDCHARTD_CONFIG_FILE=/root/.signalk/plugin-config-data/sensor-log.json
+   ```
+   The file is commented to give guidance on the purpose of each variable and
+   what changes, if any, may be considered or required.
+
+5. Execute the command `sudo bash ./systemd/install.sh`.
+
+   This script copies unit files into the `/etc/systemd/system/` directory
+   and installs and starts __rrdcached__ and  __rrdchartd__.
+   These changes can be reversed by `sudo bash ./systemd/install.sh -u`.
+
 
 ## Usage
 
-### Running the plugin for the first time
+__signalk-sensor-log__ will not run until it has been activated from the
+Signal K Node server console.
+
+The plugin is shipped so that when started for first activation it will attempt
+to acquire tank level data streams and if these are present it will configure
+itself to log and chart this data.
+
+It is probable that will want to change or expand this simple default to suit
+your own installation requirement.
+
+### Activating the plugin for the first time
 
 In the server main menu navigate to _Server->Plugin config_ and select _Sensor
-Log_to access the plugin configuration screen.
+Log_to open the __signalk-sensor-log__ configuration panel.
 
-The configuration screen consist of a number of collapsible sections, each
-concerned with some aspect of the plugin's operation.
+The configuration panel consist of a Signal K Node server widget containing
+state and logging options, a collection of plugin specific configuration
+options, and finally a _Submit_ button which saves the plugin configuration,
+commits any changes and, starts or stops the plugin dependent upon the state
+of the _Active_ option.
+
+Configuration options specific to _signalk-sensor-log_ are organised under a
+number of expandable tabs, each concerned with some specific aspect of the
+plugin's operation and each described in detail below.
+
+To activate the plugin you must check the _Activate_ option and click _Submit_,
+but you may prefer to review at least the _sensor_ tab before doing this.
+
+### rrdservices configuration tab
+
+### rrddatabase configuration tab
+The primary configuration option is contained in the _sensor_ sub-section and
+is a regular expression (or regex) which of all the available Signal K sensor
+paths are of interest to the plugin.
+and opening this will reveal o
 Proceed with first configuration by:
 
 1. Expand the _rrdservices_ configuration tab and confirm that the service
@@ -343,3 +471,257 @@ the changes in power usage over time.
 The plugin makes an attempt to derive kWh energy usage from the reported power
 readings.
 
+## Plugin configuration options
+
+### RRD services
+
+__RRD cache daemon service socket__ (read only)  
+Displays the UNIX socket on which __rrdcached__ is providing database creation
+and update services.
+This value is defined in `systemd/service.conf`.
+
+__RRD chart generation daemon service port__ (read only)  
+Displays the TCP port on which __rrdchartd__ is providing chart rendering
+services.
+This value is defined in `systemd/service.conf`.
+
+### RRD database options
+
+__Directory in which to store RRD databases__ (read only)  
+Displays the directory in which all databases associated with the plugin are
+stored.
+This value is defined in `systemd/service.conf`.
+
+__Database update interval in seconds__  
+Defines the number of seconds between database updates and hence the frequency
+at which sensor channels on the host Signal K server are sampled.
+The default value is 10 seconds.
+Decreasing this value much below its default may render the logging system
+unstable - mileage depends principally upon resource availability on the host.
+
+__RRD database options__  
+
+__&x2610; Plug data holes__  
+Replace missing values in the data samples with a copy of the last real value.
+Default value is NO.
+
+__&x2610; Recreate databases if plugin list changes__  
+If the sensor list is updated in a way which would modify the structure of
+an existing database or databases, or require the creation of a new database,
+then silently implement the necessary changes.
+Default value is YES.
+
+__&x2610; Recreate all databases now__  
+Recreate all databases immediately.
+Default value is NO.
+Note that this is a one-shot option which will reset to the default after
+restart.
+
+### Chart options
+
+__&x2610; Generate charts__  
+Make the plugin generate charts at regular intervals.
+Default is YES.
+If you disable this option the plugin will never generate a chart: this might
+be both useful and efficient if you are able to generate charts on demand by
+calling __rrdchartd__ directly (see below for details on how to do this).
+
+__Directory for generated charts__ (read only)  
+Displays the directory in which __rrdchartd__ will place rendered charts.
+This value is defined in `systemd/service.conf`.
+
+__Color to use for chart canvas__
+RGB color to use for the canvas on all rendered charts.
+Default is #000000 (black).
+
+__Color to use for chart background__
+RGB color to use for the background on all rendered charts.
+Default is #000000 (black).
+
+__Color to use for chart foreground__
+RGB color to use for the foreground on all rendered charts.
+Default is #804040 (dull red).
+
+### Logging options
+
+The plugin can log details of its operation, both normal and abnormal, to
+either or both of the system logging service (usually to `/var/log/syslog`)
+and the Signal K Node server console.
+All output messages are described below in the __Log messages__ section.
+
+These options allow control over what messages are generated where.
+
+__Report the following events to Signal K server console__  
+
+__&x2610; Database updates__
+Default value is YES.
+
+__&x2610; Notifications__  
+Default value is YES.
+
+__&x2610; Warnings__  
+Default value is NO.
+
+__&x2610; Errors__  
+Default value is YES.
+
+__Report the following events to the system log__  
+
+__&x2610; Database updates__
+Default value is NO.
+
+__&x2610; Notifications__  
+Default value is NO.
+
+__&x2610; Warnings__  
+Default value is YES.
+
+__&x2610; Errors__  
+Default value is YES.
+
+### Sensors
+
+__Initialise sensor list using this regex__  
+A regular expression which is used to select the Signal K paths that are
+used to initialise the plugin.
+Default value is __*__ (to select all paths).
+You will probably want to change the default to suit your requirement.
+Changing this value will result in the sensor list being re-initialised: if the
+new list contains sensor paths from the old list then the settings for
+individual sensors will be carried over, but if the new list doesn't contain
+any existing sensors then all the previous settings will be lost.
+Note that once a sensor list has been built it can be pruned by hand ands
+changes will not be overwritten until either the regex is changed or the
+following option is used to force a re-scan of the server.
+
+__&x2610; Re-initialise sensor list now__  
+Forces the sensor list to be re-built (use this option to rebuild the sensor
+list by re-applying the same regex).
+Default value is NO.
+Note that this is a one-shot option which will reset to the default after
+restart.
+
+__Sensor list__  
+
+__&#xbb; Sensor path__   
+Displays the Signal K pathname of this sensor.
+This value is a unique identifier supplied by the Signal K server and cannot
+be changed.
+
+__&#xbb; Sensor name__  
+A user-friendly name to be used for this sensor in all output generated by
+the plugin.
+Default value is a mangled version of the sensor path and you will almost
+certainly want to change it.
+
+__&#xbb; Multiplier for sensor values__  
+A multiplier that will be used to scale values reported by Signal K for this
+sensor before they are written to a database.
+The database engine used by the plugin is tuned for handling integer values
+and to exploit this Signal K values which are returned as small decimal values
+will need to be scaled.
+This especially impacts values like tank levels which are returned as ratios
+in the range 0..1: a simple solution in this case is to use a mutiplier of
+100 to yield a percentage.
+Default value is 1.
+
+__&#xbb; Databases which include this sensor__  
+A space separated list of database names which should include this sensor's
+data.
+Default value is a name derived from the first part of the sensor's path
+which ensures, for example, that all tank level data ends up in at least the
+database `tanks.rrd`.
+
+__&#xbb; Display groups which include this sensor__  
+A space separated list of display groups which should include this sensor's
+data.
+Default value is a name derived from the first part of the sensor's path
+which ensures, for example, that all tank level data ends up in at least the
+display group `tanks`.
+
+__&#xbb; Color to use when rendering this sensor__  
+The color to be used for this sensor's data in all chart output.
+Default is value drawn sequentially from a palette of colours designed to be
+easily distinguishable one from another.
+The assigned colors have no mnemonic or semantic value.
+
+__&#xbb; Sensor options__  
+
+__&x2610; Is stackable__  
+Asserts whether or not the data associated with this sensor could be stacked
+in a meaningful way in a _stacked chart_: this does not mean that the data
+will be stacked, just that it could be.
+Default value is NO.
+## Log messages
+
+__signalk-sensor-log__ generates three type of message: _Notifications_ are
+just life-cycle advisories about what is happening, _Warnings_ let you know
+that something has occurred or been identified which is a little unusual and
+_Errors_ tell you that something fatal has happened or been identified and
+that the plugin is terminating.
+
+### Notifications
+
+__Scanning server for sensor data streams__  
+The plugin is requesting a list of sensor paths from the host Signal K server which it will filter using the regex supplied as a configuration option.
+
+__Scan selected _nn_ streams__  
+Application of the regex has selected _nn_ sensor paths from those supplied by the Signal K Node server.
+
+__Creating new database '_dbname_' for _nn_ sensors__  
+The plugin is creating a new database called _dbname_ to hold data for _nn_ sensor streams.
+
+__Updating display groups__  
+The plugin is updating the list of display groups by scanning the sensor list.
+
+__Chart generation disabled by configuration option__  
+The plugin will not generate any charts because the user has disabled chart generation.
+
+__There are no defined display groups__  
+Chart generation is enabled but no charts will be generated because there are no defined display groups.
+
+__Connected to _nn_ sensor streams__  
+The plugin has connected to _nn_ sensor streams and is about to begin logging data.
+
+__Logging _nn_ sensor streams (_v1_,_v2_,...)__  
+The plugin is processing _nn_ data values (_v1_, _v2_, etc.) to database.
+
+### Warnings
+
+__Update of chart manifest failed__  
+The plugin was unable to update `public/manifest.json`.
+This probably means that the webapp will not work correctly.
+This is only likely to happen if the permissions on the `public/` directory
+have changed or there is no space left on the host storage device.
+
+__Update of plugin options failed: _msg__  
+The plugin asked the host Signal K Node server to update its configuration
+file and the server returned an error described by _msg_.
+
+__Updating _dbname_  with (_v1_,_v2_,...)__  
+
+__Database update failed: _err__
+
+__Chart generation failed for '_group_, _chart_ '__  
+
+### Errors
+
+__There are no accessible sensor data streams__  
+This means either that the Signal K Node server has not returned a list of
+available sensor paths (unlikely), or that the currently configured regex is
+not selecting anything.
+The plugin will terminate since with no sensor paths there is no data.
+
+__Error creating database '_dbname_'__  
+The plugin attempted and failed to create the database _dbname_.
+The plugin will terminate since a problem creating or writing to a database
+suggests that something is amiss, probably with __rrdcached__ (you can check
+the service status with the command `systemctl status rrdcached`).
+
+__There are no defined databases__  
+There are no database for the plugin to log to.
+This may be because the plugin can't create them and suggests a  problem
+with __rrdcached__ or a a permissions issue in the database directory.
+
+__Could not connect to cache daemon__
+The plugin could not connect to __rrdcached__.
