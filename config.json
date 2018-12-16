@@ -1,0 +1,73 @@
+{
+
+	"RRDTOOL_WORKING_DIRECTORY": "$$_RRDCACHED_WORKING_DIRECTORY_$$",
+	"RRDUSER": "$$_RRD_USER_$$",
+	"RRDGROUP": "$$_RRD_GROUP_$$",
+	"DATAMAX": 10000,
+	
+	"DEFAULT_RRDSERVICES_RRDCACHEDSOCKET": "$$_RRDCACHED_WORKING_DIRECTORY_$$/$$_RRDCACHED_SOCKET_$$",
+	"DEFAULT_RRDSERVICES_RRDCHARTDPORT": "$$_RRDCHARTD_PORT_$$",
+	"DEFAULT_RRDDATABASE_DIRECTORY": "$$_RRDCACHED_WORKING_DIRECTORY_$$",
+	"DEFAULT_RRDDATABASE_UPDATEINTERVAL": 10,
+	"DEFAULT_RRDDATABASE_OPTIONS": [ "plug", "autocreate" ],
+	"DEFAULT_RRDDATABASE_PERIODS": [
+        {
+            "name": "hour",
+            "tag": "end-1h",
+            "seconds": 3600,
+            "stepfactor": 1,
+            "consolidate": "MAX",
+            "plotticks": 30
+        },
+	    {
+            "name": "day",
+            "tag": "end-1d",
+            "seconds": 86400,
+            "stepfactor": 5,
+            "consolidate": "MAX",
+            "plotticks": 55 },
+	    {
+            "name": "week",
+            "tag": "end-1w",
+            "seconds": 604800,
+            "stepfactor": 34,
+            "consolidate": "AVERAGE",
+            "plotticks": 123 },
+	    {
+            "name": "month",
+            "tag": "end-1m",
+            "seconds": 2592000,
+            "stepfactor": 144,
+            "consolidate": "AVERAGE",
+            "plotticks": 247 },
+	    {
+            "name": "year",
+            "tag": "end-1y",
+            "seconds": 31104000,
+            "stepfactor": 1728,
+            "consolidate": "AVERAGE",
+            "plotticks": 1441 }
+	],
+	"DEFAULT_CHART_GENERATE": true,
+	"DEFAULT_CHART_DIRECTORY": "$$_RRDCHARTD_WORKING_DIRECTORY_$$",
+	"DEFAULT_CHART_CANVASCOLOR": "#000000",
+	"DEFAULT_CHART_BACKGROUNDCOLOR": "#000000",
+	"DEFAULT_CHART_FONTCOLOR": "#804000",
+	"DEFAULT_LOGGING_CONSOLE": [ "updates", "notifications", "errors" ],
+	"DEFAULT_LOGGING_SYSLOG": [ "warnings", "errors" ],
+	"DEFAULT_SENSOR_SELECTOR": "(currentLevel|power)$",
+	"DEFAULT_SENSOR_RESCAN": false,
+	"DEFAULT_SENSOR_NAME": "",
+	"DEFAULT_SENSOR_DATABASE": "",
+	"DEFAULT_SENSOR_DISPLAYCOLOR": "#FFFFFF",
+	"DEFAULT_SENSOR_DISPLAYGROUPS": "ALL",
+	"DEFAULT_SENSOR_MULTIPLIER": 1,
+	"DEFAULT_SENSOR_OPTIONS": [ "stackable" ],
+	"DEFAULT_SENSOR_LIST": [],
+	"DEFAULT_DISPLAYGROUP_TITLE": "Sensor values",
+	"DEFAULT_DISPLAYGROUP_YLABEL": "Sensor value",
+	"DEFAULT_DISPLAYGROUP_YMIN": "",
+	"DEFAULT_DISPLAYGROUP_YMAX": "",
+	"DEFAULT_DISPLAYGROUP_OPTIONS": [],
+	"DEFAULT_DISPLAYGROUP_LIST": []
+}

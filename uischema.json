@@ -1,0 +1,157 @@
+{
+    "rrdservices": {
+        "ui:field": "collapsible",
+        "collapse": {
+            "field": "ObjectField",
+            "wrapClassName": "panel-group"
+        },
+        "rrdcachedsocket": {
+            "ui:disabled": true,
+            "ui:help": "This value can only be changed in systemd/service.conf"
+        },
+        "rrdchartdport": {
+            "ui:disabled": true,
+            "ui:help": "This value can only be changed in systemd/service.conf"
+        }
+    },
+    "rrdserver": {
+        "ui:field": "collapsible",
+        "collapse": {
+            "field": "ObjectField",
+            "wrapClassName": "panel-group"
+        },
+        "options": {
+            "ui:widget": {
+                "component": "checkboxes",
+                "options": {
+                    "inline": true
+                }
+            }
+        }
+    },
+    "rrddatabase": {
+        "ui:field": "collapsible",
+        "collapse": {
+            "field": "ObjectField",
+            "wrapClassName": "panel-group"
+        },
+        "directory": {
+            "ui:disabled": true,
+            "ui:help": "This value can only be changed in systemd/service.conf"
+        },
+        "options": {
+            "ui:widget": {
+                "component": "checkboxes",
+                "options": {
+                    "inline": true
+                }
+            }
+        },
+        "databases": {
+            "classNames": "hidden"
+        },
+        "periods": {
+            "classNames": "hidden"
+        }
+    },
+    "chart": {
+        "ui:field": "collapsible",
+        "collapse": {
+            "field": "ObjectField",
+            "wrapClassName": "panel-group"
+        },
+        "directory": {
+            "ui:disabled": true,
+            "ui:help": "This value can only be changed in systemd/service.conf"
+        },
+        "canvascolor": {
+            "ui:widget": "color"
+        },
+        "backgroundcolor": {
+            "ui:widget": "color"
+        },
+        "fontcolor": {
+            "ui:widget": "color"
+        }
+    },
+    "logging": {
+        "ui:field": "collapsible",
+        "collapse": {
+            "field": "ObjectField",
+            "wrapClassName": "panel-group"
+        },
+        "console": {
+            "ui:widget": {
+                "component": "checkboxes",
+                "options": {
+                    "inline": true
+                }
+            }
+        },
+        "syslog": {
+            "ui:widget": {
+                "component": "checkboxes",
+                "options": {
+                    "inline": true
+                }
+            }
+        }
+    },
+    "sensor": {
+        "ui:field": "collapsible",
+        "collapse": {
+            "field": "ObjectField",
+            "wrapClassName": "panel-group"
+        },
+        "currentselector": {
+            "ui:widget": "hidden"
+        },
+        "list": {
+            "ui:options": {
+                "addable": false
+            },
+            "items": {
+                "path": {
+                    "ui:disabled": true
+                },
+                "displaycolor": {
+                    "ui:widget": "color"
+                },
+                "options": {
+                    "ui:widget": {
+                        "component": "checkboxes",
+                        "options": {
+                            "inline": true
+                        }
+                    }
+                }
+            }
+        },
+        "dbpaths": {
+            "ui:widget": "hidden"
+        }
+    },
+    "displaygroup": {
+        "ui:field": "collapsible",
+        "collapse": {
+            "field": "ObjectField",
+            "wrapClassName": "panel-group"
+        },
+        "list": {
+            "items": {
+                "id": {
+                    "ui:disabled": true,
+                    "ui:help": "This value is generated automatically from the sensor displaygroups option values"
+                },
+                "options": {
+                    "ui:widget": {
+                        "component": "checkboxes",
+                        "options": {
+                            "inline": true
+                        }
+                    }
+                }
+            }
+        }
+    }
+}

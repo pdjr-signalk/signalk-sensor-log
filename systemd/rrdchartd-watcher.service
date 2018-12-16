@@ -1,0 +1,10 @@
+[Unit]
+Description=rrdchartd service restarted
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/bin/systemctl restart rrdchartd.socket
+
+[Install]
+WantedBy=multi-user.target

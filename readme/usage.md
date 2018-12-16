@@ -1,65 +1,40 @@
-# signalk-sensor-log
-
-Log and chart sensor data using round-robin databases.
-
-At a regular, user-defined, sampling _interval_ __signalk-sensor-log__
-retrieves a set of user selected sensor _values_ from the host Signal K Node
-server and saves each of these values into one or more user defined
-round-robin _databases_.
-
-Values in each database are consolidated over user defined time periods in a
-way which prevents database expansion at the expense of some loss of detail at
-larger timescales.
-By default, the plugin consolodates data over hour, day, week, month and
-year timescales.
-
-Data derived from each channel can be rendered as part of one or more chart
-collections (a chart collection is just a set of charts which depict the same
-data values over each of the defined timescales).
-The plugin includes a simple web application which can be used to display any
-generated charts.
-
-Database update and rendering services are implemented as stand-alone daemons
-which run as separate processes from the host Signal K Node Server and have
-minimal impact upon server operation even when many sensor channels are being
-logged.
-
-The plugin offers many user configuration options, but is designed to work
-'out of the box' in a way that may suit many users.
-
-Some examples of the type of data logging that can be undertaken are
-illustrated below.
-
-__Example 1__  
-Power levels reported from the host vessel's inverter/charger show changes in
-electrical power consumption and use.
-
-![Webapp screenshot](readme/acpower.png)
-
-__Example 2__
-Readings from tank level sensors are plotted to illustrate changes in tank
-content over time.
-
-![Webapp screenshot](readme/tanks.png)
-
-__Example 3__
-NMEA switchbank state changes over time.
-
-#include readme/system-requirements.md
-
-#include readme/installation.md
-
-#include readme/use.md
-
 ## Usage
 
-### Running the plugin for the first time
+__signalk-sensor-log__ will not run until it has been activated from the
+Signal K Node server console.
+
+The plugin is shipped so that when started for first activation it will attempt
+to acquire tank level data streams and if these are present it will configure
+itself to log and chart this data.
+
+It is probable that will want to change or expand this simple default to suit
+your own installation requirement.
+
+### Activating the plugin for the first time
 
 In the server main menu navigate to _Server->Plugin config_ and select _Sensor
-Log_to access the plugin configuration screen.
+Log_to open the __signalk-sensor-log__ configuration panel.
 
-The configuration screen consist of a number of collapsible sections, each
-concerned with some aspect of the plugin's operation.
+The configuration panel consist of a Signal K Node server widget containing
+state and logging options, a collection of plugin specific configuration
+options, and finally a _Submit_ button which saves the plugin configuration,
+commits any changes and, starts or stops the plugin dependent upon the state
+of the _Active_ option.
+
+Configuration options specific to _signalk-sensor-log_ are organised under a
+number of expandable tabs, each concerned with some specific aspect of the
+plugin's operation and each described in detail below.
+
+To activate the plugin you must check the _Activate_ option and click _Submit_,
+but you may prefer to review at least the _sensor_ tab before doing this.
+
+### rrdservices configuration tab
+
+### rrddatabase configuration tab
+The primary configuration option is contained in the _sensor_ sub-section and
+is a regular expression (or regex) which of all the available Signal K sensor
+paths are of interest to the plugin.
+and opening this will reveal o
 Proceed with first configuration by:
 
 1. Expand the _rrdservices_ configuration tab and confirm that the service

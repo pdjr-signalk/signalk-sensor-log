@@ -1,0 +1,5 @@
+[Path]
+PathChanged=/root/.signalk/plugin-config-data/sensor-log.json
+
+[Install]
+WantedBy=multi-user.target

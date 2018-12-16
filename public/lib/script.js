@@ -6,10 +6,6 @@ var config = null;
 var manifest = null;
 var index = 0;
 
-var tcpclient = new TcpClient('192.168.1.1', 9999);
-tcpclient.connect(function() {
-    console.log("connected");
-});
 /**
  * Initialises the page by setting the page heading and attempting to load the
  * page manifest from MANIFEST_FILE. If the load is successful, then the

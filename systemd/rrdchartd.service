@@ -6,7 +6,9 @@ Requires=rrdchartd.socket
 EnvironmentFile=/root/.signalk/node_modules/signalk-sensor-log/systemd/service.conf
 Restart=always
 WorkingDirectory=${RRDCHARTD_WORKING_DIRECTORY}
-ExecStart=/root/.signalk/node_modules/signalk-sensor-log/makechart.py - -d ${RRD_FILE} -c ${RRDCHARTD_CONFIG_FILE}
+ExecStartPre=/bin/mkdir -p ${RRDCHARTD_WORKING_DIRECTORY}
+ExecStartPre=/bin/chown ${RRD_USER}:${RRD_GROUP} ${RRDCHARTD_WORKING_DIRECTORY}
+ExecStart=/root/.signalk/node_modules/signalk-sensor-log/makechart.py - -c ${RRDCHARTD_CONFIG_FILE} -U ${RRD_USER} -G ${RRD_GROUP}
 
 [Install]
 WantedBy=multi-user.target

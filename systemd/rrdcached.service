@@ -4,9 +4,12 @@ Description=RRD Cache Daemon for signalk-sensor-log
 [Service]
 EnvironmentFile=/root/.signalk/node_modules/signalk-sensor-log/systemd/service.conf
 Restart=always
-ExecStartPre=/bin/mkdir -p ${RRDCACHED_WORKING_DIRECTORY} ; /bin/chown ${RRD_USER}:${RRD_GROUP} ${RRDCACHED_WORKING_DIRECTORY}
-ExecStart=/usr/bin/rrdcached -s ${RRD_GROUP} -m 664 -g -U ${RRD_USER} -G ${RRD_GROUP} -b ${RRDCACHED_WORKING_DIRECTORY} -l unix:${RRDCACHED_WORKING_DIRECTORY}/rrdcached.sock -p ${RRDCACHED_WORKING_DIRECTORY}/rrdcached.pid
-ExecStopPost=/bin/rm ${RRDCACHED_WORKING_DIRECTORY}/rrdcached.sock ${RRDCACHED_WORKING_DIRECTORY}/rrdcached.pid
+ExecStartPre=-/usr/sbin/useradd -r ${RRD_USER}
+ExecStartPre=-/usr/sbin/usermod -s /bin/false ${RRD_USER}
+ExecStartPre=/bin/mkdir -p ${RRDCACHED_WORKING_DIRECTORY}
+ExecStartPre=/bin/chown ${RRD_USER}:${RRD_GROUP} ${RRDCACHED_WORKING_DIRECTORY}
+ExecStart=/usr/bin/rrdcached -g -s ${RRD_USER} -m 664 -U ${RRD_USER} -G ${RRD_GROUP} -b ${RRDCACHED_WORKING_DIRECTORY} -l unix:${RRDCACHED_WORKING_DIRECTORY}/${RRDCACHED_SOCKET} -p ${RRDCACHED_WORKING_DIRECTORY}/${RRDCACHED_PID}
+ExecStopPost=/bin/rm ${RRDCACHED_WORKING_DIRECTORY}/${RRDCACHED_SOCKET} ${RRDCACHED_WORKING_DIRECTORY}/${RRDCACHED_PID}
 StandardOutput=journal
 StandardError=journal
 
