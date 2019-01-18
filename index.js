@@ -19,14 +19,14 @@ const bacon = require('baconjs');
 const kellycolors = require('./lib/kellycolors');
 const rrdtool = require('./lib/rrdtool');
 const Schema = require('./lib/schema.js');
-const Database = require("./lib/database.js");
-const Databases = require("./lib/databases.js");
+const utils = require("./lib/utils.js");
+const Log = require("./lib/log.js");
 
 const DEBUG = false;
-const PLUGIN_CONFIG_FILE = __dirname + "/config.json"
-const PLUGIN_SCHEMA_FILE = __dirname + "/schema.json"
-const PLUGIN_UISCHEMA_FILE = __dirname + "/uischema.json"
-const SYSTEMD_CONFIG_FILE = __dirname + "/systemd/service.conf"
+const PLUGIN_CONFIG_FILE = __dirname + "/config.json";
+const PLUGIN_SCHEMA_FILE = __dirname + "/schema.json";
+const PLUGIN_UISCHEMA_FILE = __dirname + "/uischema.json";
+const SYSTEMD_CONFIG_FILE = __dirname + "/systemd/service.conf";
 const CHART_MANIFEST_FILE = __dirname + "/public/manifest.json";
 
 module.exports = function(app) {
@@ -43,6 +43,7 @@ module.exports = function(app) {
      * file.
      */
 
+    const log = new Log(app.setProviderStatus, app.setProviderError, plugin.id);
     const CONFIG = Schema.createSchema(PLUGIN_CONFIG_FILE, loadSystemdConfig(SYSTEMD_CONFIG_FILE)).getSchema(); 
 
     /**
@@ -51,13 +52,16 @@ module.exports = function(app) {
      * values by interrogting the host application environment.
      */
 	plugin.schema = function() {
+        if (DEBUG) console.log("plugin.schema()...");
+
         var schema = Schema.createSchema(PLUGIN_SCHEMA_FILE, CONFIG);
-        var sensors = loadSensors(CONFIG.DEFAULT_SENSOR_SELECTOR);
-        var databases = Databases.createFromSensorList(sensors).getList();
-        var displaygroups = generateDisplayGroups(sensors);
-        schema.insertValue("properties.sensor.properties.list.default", sensors);
+        var paths = utils.createPathObjects(utils.filterAvailablePaths(app, ["notifications"]), undefined, createPathObject);
+        var databases = utils.createDatabasesFromPaths(paths, undefined, makeIdFromPath);
+        var displaygroups = utils.createDisplaygroupsFromPaths(paths, undefined, createDisplaygroupObject);
+        schema.insertValue("properties.paths.default", paths);
         schema.insertValue("properties.rrddatabase.properties.databases.default", databases);
-        schema.insertValue("properties.displaygroup.properties.list.default", displaygroups);
+        schema.insertValue("properties.displaygroups.default", displaygroups);
+        fs.writeFileSync(__dirname + "/out", JSON.stringify(schema.getSchema()));
         return(schema.getSchema());
     };
 
@@ -65,6 +69,8 @@ module.exports = function(app) {
      * Load the plugin's react:json ui:schema from disk file.
      */
 	plugin.uiSchema = function() {
+        if (DEBUG) console.log("plugin.uiSchema()...");
+
         var schema = Schema.createSchema(PLUGIN_UISCHEMA_FILE);
         return(schema.getSchema());
     }
@@ -75,6 +81,8 @@ module.exports = function(app) {
      * few sanity checks before entering the production loop.
      */
 	plugin.start = function(options) {
+        if (DEBUG) console.log("plugin.start(%s)...", JSON.stringify(options));
+
         Promise.all([
             rrdtool.openCacheD(options.rrdservices.rrdcachedsocket, handleRrdcachedOutput),
             rrdtool.openChartD(options.chart.generatecharts?options.rrdservices.rrdchartdport:0)
@@ -85,63 +93,69 @@ module.exports = function(app) {
 		        // requested a re-scan of sensor paths, then we try to load a list of
 		        // sensors using the selector regex.
 				//
-				if ((options.sensor.list.length == 0) || (options.sensor.rescan) || (options.sensor.selector != options.sensor.currentselector)) {
-					logNN(undefined, "scanning server for sensor data streams");
-		            options.sensor.list = loadSensors(options.sensor.selector, options.sensor.list);
-		            options.sensor.rescan = false;
-		            options.sensor.currentselector = options.sensor.selector;
-		            logNN(undefined, "scan selected " + options.sensor.list.length + " streams");
-		        }
-                if (options.sensor.list.length == 0) {
-			        logEE("there are no accessible sensor data streams");
-			        return;
-		        }
+                var proposedDatabases, missingDatabases = [], changedDatabases = [];
+                if (options.rrddatabase.options.includes("rebuild")) {
+                    log.N("database rebuild: starting by sleeping for 15 seconds");
+                    options.rrddatabase.options = [];
+                    setTimeout(function() {
+                        options.paths = utils.createPathObjects(utils.filterAvailablePaths(app, ["notifications"]), options.paths, createPathObject);
+                        log.N("database rebuild: identified " + options.paths.length + " data source(s)");
 
-                // Check the current database configuration, re-making any databases
-                // that are missing or whose structure does not conform to the current
-                // sensor list settings.
-                //
-                var databases = Databases.createFromSensorList(options.sensor.list);
-                var missingdatabases = databases.missingOnDisk(options.rrddatabase.directory);
-                var currentdatabases = Databases.createFromDatabaseList(options.rrddatabase.databases);
-                var changeddatabases = databases.difference(currentdatabases);
-                var dirtydatabases = missingdatabases.union(changeddatabases);
-                dirtydatabases.getList().forEach(database => {
-			        logNN("creating new database '" + database.getName() + "' for " + database.getPaths().length + " sensors");
+                        proposedDatabases = utils.createDatabasesFromPaths(options.paths, makeIdFromPath);
+                        missingDatabases = utils.getMissingDatabases(proposedDatabases, options.rrddatabase.directory);
+                        log.N("database rebuild: will create " + missingDatabases.length + " missing database(s)");
+                        changedDatabases = utils.getChangedDatabases(proposedDatabases, options.rrddatabase.databases);
+                        log.N("database rebuild: will recreate " + changedDatabases.length + " changed database(s)");
+                    }, 15000);
+                }
+
+                options.paths = options.paths.sort((a,b) => ((a['path'] < b['path'])?-1:((a['path'] > b['path'])?1:0)));
+
+                if (options.rrddatabase.options.includes("autocreate")) {
+                    proposedDatabases = utils.createDatabasesFromPaths(options.paths, options.databases,makeIdFromPath);
+                    missingDatabases = utils.getMissingDatabases(proposedDatabases, options.rrddatabase.directory);
+                    log.N("database autocreate: will create " + missingDatabases.length + " missing database(s)");
+                }
+
+                utils.mergeDatabases(changedDatabases, missingDatabases).forEach(database => {
+			        log.N("creating new database '" + database['name'] + "' for " + database['datasources'].length + " paths");
 			        rrdtool.createDatabase(
-                        database.getName(),
+                        database['name'],
                         options.rrddatabase.updateinterval, 
                         0, 
                         CONFIG.DATAMAX, 
-                        database.getPaths().map(v => makeIdFromPath(v)), 
+                        database['datasources'].map(datasource => datasource['name']), 
                         options.rrddatabase.periods
                     )
                     .then(result => {
                         if (!result) {
-                            logEE("error creating database '" + database.getName() + "'");
+                            log.E("error creating database '" + database['name'] + "'");
                             return;
+                        } else {
+                            log.N("created new database '" +  database['name'] + "'");
+                            options.rrddatabase.databases = utils.updateDatabases(options.rrddatabase.databases, database);
                         }
 			        })
                     .catch(err => {
-                        logEE("fatal error: " + err);
+                        log.E("fatal error: " + err);
                         return;
                     });
                 });
-                options.rrddatabase.databases = databases.getList();
+
                 if (options.rrddatabase.databases.length == 0) {
-			        logEE("there are no defined databases");
+			        log.E("there are no defined databases");
 			        return;
                 }
 
                 // Update the displaygroup options from the sensor list, just in-case
                 // the user has made any changes in plugin config.
                 //
-                options.displaygroup.list = generateDisplayGroups(options.sensor.list, options.displaygroup.list);
+                options.displaygroups = utils.createDisplaygroupsFromPaths(options.paths, options.displaygroups, createDisplaygroupObject);
 
                 // Save plugin options.
                 //
                 app.savePluginOptions(options, function(err) {
-                    if (err) logNN("update of plugin options failed: " + err);
+                    if (err) log.W("update of plugin options failed: " + err);
                 });
 
 
@@ -149,39 +163,39 @@ module.exports = function(app) {
                 // if it seems sensible, try and save a chart manifest file
                 // so that the webapp knows what's what.
                 //
-      	        if (options.displaygroup.list.length == 0) {
-                    logWW("disabling chart generation because there are no defined display groups");
+      	        if (options.displaygroups.length == 0) {
+                    log.W("disabling chart generation because there are no defined display groups");
                     options.chart.generatecharts = false;
                 } else {
 		            if (options.chart.generatecharts) {
-                        writeManifest(CHART_MANIFEST_FILE, options.displaygroup.list, function(err) { if (err) logWW("update of chart manifest failed"); });
-                        if (!chartdConnected) logWW("disabling chart generation because rrdchartd cannot be reached");
+                        writeManifest(CHART_MANIFEST_FILE, options.displaygroups, function(err) { if (err) log.W("update of chart manifest failed"); });
+                        if (!chartdConnected) log.W("disabling chart generation because rrdchartd cannot be reached");
                     } else {
-                        logNN("chart generation disabled by configuration option");
+                        log.N("chart generation disabled by configuration option");
                     }
                 }
 
-                var paths = databases.getAllDatabasePaths();
+                var paths = utils.getAllDatabasePaths(options.rrddatabase.databases);
 		        var pathStreams = paths.map(path => app.streambundle.getSelfBus(path));
-                var pathMultipliers = paths.map(path => options.sensor.list.reduce((a,x) => ((x['path'] == path)?x['multiplier']:a),1));
+                var pathMultipliers = paths.map(path => options.paths.reduce((a,x) => ((x['path'] == path)?x['multiplier']:a),1));
     		    var tick = 1;
-                logNN("connected to " + pathStreams.length  + " sensor streams");
+                log.N("connected to " + pathStreams.length  + " sensor streams");
 
                 unsubscribes.push(bacon.interval((1000 * options.rrddatabase.updateinterval), 0).onValue(function(t) {
                     var seconds = Math.floor(new Date() / 1000);
     		        bacon.zipAsArray(pathStreams).onValue(function(vals) {
-                        var pathValues = vals.map((a,i) => ((a['value'] == null)?NaN:(Math.round(a['value'] * pathMultipliers[i]))));
-                        if (options.logging.console.includes('updates')) logN("connected to " + pathStreams.length + " sensor streams (" + pathValues.join(',') + ")");
-                        databases.setAllDatabaseValues(pathValues);
-                        databases.getList().forEach(database => {
-                            var dbname = database.getName();
-                            if (options.logging.syslog.includes('updates')) console.log("updating '" + dbname + "' with " + JSON.stringify(database.getValues()));
-                            rrdtool.updateDatabase(dbname, seconds, database.getValues().map(v => (v == NaN)?'U':v))
+                        var pathValues = vals.map((a,i) => (((a['value'] == null) || Number.isNaN(a['value']))?NaN:(Math.round(a['value'] * pathMultipliers[i]))));
+                        //if (options.logging.console.includes('updates')) log.N("connected to " + pathStreams.length + " sensor streams (" + pathValues.join(',') + ")");
+                        options.rrddatabase.databases = utils.setAllDatabaseValues(options.rrddatabase.databases, pathValues);
+                        options.rrddatabase.databases.forEach(database => {
+                            var dbname = database['name']
+                            if (options.logging.syslog.includes('updates')) log.N("updating '" + dbname + "' with " + JSON.stringify(database['values']));
+                            rrdtool.updateDatabase(dbname, seconds, database['datasources'].map(v => (v['value'] == NaN)?'U':v['value']))
                             .then(result => {
                                 // silence is golden
                             })
                             .catch(err => {
-                                logWW("database update failed: " + err);
+                                log.W("database update failed: " + err);
                             });
                         });
 
@@ -193,10 +207,10 @@ module.exports = function(app) {
                         .map(p => p['name'])
                         .filter((v,i) => ((tick % options.rrddatabase.periods[i]['plotticks']) == 0))
                         .forEach(chart => {
-                            options.displaygroup.list.map(g => g['id']).forEach(function(group) {
+                            options.displaygroups.map(g => g['id']).forEach(function(group) {
                                 rrdtool.createChart(group, chart)
                                 .then(result => {
-                                    if (!result) logWW("chart generation failed for '" + group + ", " + chart + "'");
+                                    if (!result) log.W("chart generation failed for '" + group + ", " + chart + "'");
                                 })
                                 .catch(err => {});
                             });
@@ -205,7 +219,7 @@ module.exports = function(app) {
                     tick++;
                 }));
             } else {
-                logEE("could not connect to cache daemon");
+                log.E("could not connect to cache daemon");
                 return;
             }
         });
@@ -217,66 +231,47 @@ module.exports = function(app) {
 	}
 
     function handleRrdcachedOutput(msg) {
-        if (msg.charAt(0) == '-') logNN(msg);
+        if (msg.charAt(0) == '-') log.N(msg);
     }
 
     function writeManifest(filename, displaygroups, callback) {
         fs.writeFile(filename, JSON.stringify(displaygroups.map(dg => ({ id: dg['id'], title: dg['title'] }))), callback);
     }
 
-    /**
-     * Recovers the list of currently available data paths from the Signal K
-     * server and filters them using the supplied regular expression.  The
-     * result of this operation is cached to disk and returned to the
-     * caller.
-     */
-
-	function loadSensors(regex, sensors) {
-        if (DEBUG) console.log("loadSensors('" + regex + "', " + JSON.stringify(sensors) + ")...");
-        var regexp = RegExp(regex);
-        var retval = app.streambundle.getAvailablePaths()
-            .filter(path => (regexp.test(path)))
-		    .map(function(path) {  
-                var existing = (sensors !== undefined)?sensors.reduce((a,s) => ((s['path'] == path)?s:a),undefined):undefined;
-                return({
-                    "path": path,
-                    "name": (existing === undefined)?makeIdFromPath(path):existing['name'],
-                    "databases": (existing === undefined)?makeDatabaseNameFromPath(path, '.rrd'):existing['databases'],
-                    "displaycolor": (existing === undefined)?kellycolors.getNextColor():existing['displaycolor'],
-		            "displaygroups": (existing === undefined)?makeDatabaseNameFromPath(path, ''):existing['displaygroups'],
-                    "multiplier": (existing === undefined)?CONFIG.DEFAULT_SENSOR_MULTIPLIER:existing['multiplier'],
-                    "options": (existing === undefined)?CONFIG.DEFAULT_SENSOR_OPTIONS:existing['options']
-                });
-            });
-        return(retval);
+	function createPathObject(path, existing) {
+        return({
+            "path": path,
+            "multiplier": (existing === undefined)?CONFIG.DEFAULT_SENSOR_MULTIPLIER:existing['multiplier'],
+	        "displaygroups": (existing === undefined)?"":existing['displaygroups']
+        });
 	}
 
-
-	function generateDisplayGroups(sensors, displaygroups) {
-		var retval = [];
-
-		var definedgroupnames = new Set(sensors.reduce((acc,s) => (acc.concat(s['displaygroups'].split(' '))),[]));
-		definedgroupnames.forEach(function(definedgroupname) {
-            var existing = (displaygroups !== undefined)?displaygroups.filter(dg => (dg['id'] == definedgroupname))[0]:undefined;;
-            retval.push({
-                id: definedgroupname,
-                title: (existing === undefined)?CONFIG.DEFAULT_DISPLAYGROUP_TITLE:existing['title'],
-                ylabel: (existing === undefined)?CONFIG.DEFAULT_DISPLAYGROUP_YLABEL:existing['ylabel'],
-                ymin: (existing === undefined)?CONFIG.DEFAULT_DISPLAYGROUP_YMIN:existing['ymin'],
-                ymax: (existing === undefined)?CONFIG.DEFAULT_DISPLAYGROUP_YMAX:existing['ymax'],
-                options: (existing === undefined)?CONFIG.DEFAULT_DISPLAYGROUP_OPTIONS:existing['options']
-            });
-		});
-        return(retval);
+    function createDisplaygroupObject(name, paths, existing) {
+        var datasources = (existing === undefined)?[]:existing['datasources'];
+        paths.forEach(path => {
+            if (!datasources.map(ds => ds['path']).includes(path['path'])) {
+                datasources.push({ "path": path['path'], "name": makeIdFromPath(path['path']), "color": kellycolors.getNextColor(), "options": [] });
+            }
+        });
+        return({
+            "id": name,
+            "title": (existing === undefined)?CONFIG.DEFAULT_DISPLAYGROUP_TITLE:existing['title'],
+            "ylabel": (existing === undefined)?CONFIG.DEFAULT_DISPLAYGROUP_YLABEL:existing['ylabel'],
+            "ymin": (existing === undefined)?CONFIG.DEFAULT_DISPLAYGROUP_YMIN:existing['ymin'],
+            "ymax": (existing === undefined)?CONFIG.DEFAULT_DISPLAYGROUP_YMAX:existing['ymax'],
+            "options": (existing === undefined)?CONFIG.DEFAULT_DISPLAYGROUP_OPTIONS:existing['options'],
+            "datasources": datasources
+        });
 	}
 
 	function makeIdFromPath(path) {
-		var result = path.toLowerCase().match(/^\w+\.(.*)\..*$/)
-		if ((result != null) && (result.length > 1)) { 
-			return(result[1].replace(/[^0-9a-z]/g, ''));
-		} else {
-			throw("parse error");
-		}
+        var retval = "";
+        var parts = path.replace(/([A-Z])/g, '.$1').replace(/([0-9]+)/g, '.$1').replace("-", ".").split(".");
+        var start = (parts[0] == "notifications")?2:1;
+        for (var i = start; i < parts.length; i++) {
+            retval += parts[i].toLowerCase().substr(0, 3);
+        }
+        return(retval);
 	}
 
 	function makeDatabaseNameFromPath(path, suffix) {
@@ -299,18 +294,6 @@ module.exports = function(app) {
         }
         return(retval);
     }
-
-	function log(prefix, terse, verbose) {
-		if (verbose != undefined) console.log(plugin.id + ": " + prefix + ": " + verbose);
-		if (terse != undefined) { if (prefix !== "error") { app.setProviderStatus(terse); } else { app.setProviderError(terse); } }
-	}
-
-	function logE(terse) { log("error", terse, undefined); }
-	function logEE(terse, verbose) { log("error", terse, (verbose === undefined)?terse:verbose); }
-	function logW(terse) { log("warning", terse, undefined); }
-	function logWW(terse, verbose) { log("warning", terse, (verbose === undefined)?terse:verbose); }
-	function logN(terse) { log("notification", terse, undefined); }
-	function logNN(terse, verbose) { log("notice", terse, (verbose === undefined)?terse:verbose); }
 
 	return plugin;
 }

@@ -1,4 +1,95 @@
 {
+    "paths": {
+        "ui:field": "collapsible",
+        "collapse": {
+            "field": "ArrayField",
+            "wrapClassName": "panel-group"
+        },
+        "ui:options": {
+            "addable": true,
+            "orderable": false,
+            "removable": true
+        },
+        "items": {
+            "path": {
+                "classNames": "col-sm-5",
+                "ui:disabled": false
+            },
+            "multiplier": {
+                "classNames": "col-sm-2"
+            },
+            "displaygroups": {
+                "classNames": "col-sm-5"
+            }
+        }
+    },
+    "displaygroups": {
+        "ui:field": "collapsible",
+        "collapse": {
+            "field": "ArrayField",
+            "wrapClassName": "panel-group"
+        },
+        "ui:options": {
+            "addable": false,
+            "orderable": false,
+            "removable": false
+        },
+        "items": {
+            "id": {
+                "classNames": "col-sm-4",
+                "ui:disabled": true
+            },
+            "title": {
+                "classNames": "col-sm-4"
+            },
+            "ylabel": {
+                "classNames": "col-sm-4"
+            },
+            "ymin": {
+                "classNames": "col-sm-2"
+            },
+            "ymax": {
+                "classNames": "col-sm-2"
+            },
+            "options": {
+                "classNames": "col-sm-8",
+                "ui:widget": {
+                    "component": "checkboxes",
+                    "options": {
+                        "inline": true
+                    }
+                }
+            },
+            "datasources": {
+                "classNames": "col-sm-12",
+                "ui:options": {
+                    "orderable": true
+                },
+                "items": {
+                    "path": {
+                        "classNames": "col-sm-4",
+                        "ui:disabled": false
+                    },
+                    "name": {
+                        "classNames": "col-sm-3"
+                    },
+		            "color": {
+		                "classNames": "col-sm-2",
+		                "ui:widget": "color"
+		            },
+		            "options": {
+		                "classNames": "col-sm-3",
+		                "ui:widget": {
+		                    "component": "checkboxes",
+		                    "options": {
+		                        "inline": true
+		                    }
+		                }
+		            }
+                }
+            }
+        }
+    },
     "rrdservices": {
         "ui:field": "collapsible",
         "collapse": {
@@ -14,32 +105,23 @@
             "ui:help": "This value can only be changed in systemd/service.conf"
         }
     },
-    "rrdserver": {
-        "ui:field": "collapsible",
-        "collapse": {
-            "field": "ObjectField",
-            "wrapClassName": "panel-group"
-        },
-        "options": {
-            "ui:widget": {
-                "component": "checkboxes",
-                "options": {
-                    "inline": true
-                }
-            }
-        }
-    },
     "rrddatabase": {
         "ui:field": "collapsible",
         "collapse": {
             "field": "ObjectField",
             "wrapClassName": "panel-group"
         },
+        "updateinterval": {
+            "classNames": "col-sm-4",
+            "ui:help": "In seconds"
+        },
         "directory": {
+            "classNames": "col-sm-8",
             "ui:disabled": true,
             "ui:help": "This value can only be changed in systemd/service.conf"
         },
         "options": {
+            "classNames": "col-sm-9",
             "ui:widget": {
                 "component": "checkboxes",
                 "options": {
@@ -60,17 +142,24 @@
             "field": "ObjectField",
             "wrapClassName": "panel-group"
         },
+        "generatecharts": {
+            "classNames": "col-sm-4"
+        },
         "directory": {
+            "classNames": "col-sm-8",
             "ui:disabled": true,
             "ui:help": "This value can only be changed in systemd/service.conf"
         },
-        "canvascolor": {
+        "backgroundcolor": {
+            "classNames": "col-sm-4",
             "ui:widget": "color"
         },
-        "backgroundcolor": {
+        "canvascolor": {
+            "classNames": "col-sm-4",
             "ui:widget": "color"
         },
         "fontcolor": {
+            "classNames": "col-sm-4",
             "ui:widget": "color"
         }
     },
@@ -93,63 +182,6 @@
                 "component": "checkboxes",
                 "options": {
                     "inline": true
-                }
-            }
-        }
-    },
-    "sensor": {
-        "ui:field": "collapsible",
-        "collapse": {
-            "field": "ObjectField",
-            "wrapClassName": "panel-group"
-        },
-        "currentselector": {
-            "ui:widget": "hidden"
-        },
-        "list": {
-            "ui:options": {
-                "addable": false
-            },
-            "items": {
-                "path": {
-                    "ui:disabled": true
-                },
-                "displaycolor": {
-                    "ui:widget": "color"
-                },
-                "options": {
-                    "ui:widget": {
-                        "component": "checkboxes",
-                        "options": {
-                            "inline": true
-                        }
-                    }
-                }
-            }
-        },
-        "dbpaths": {
-            "ui:widget": "hidden"
-        }
-    },
-    "displaygroup": {
-        "ui:field": "collapsible",
-        "collapse": {
-            "field": "ObjectField",
-            "wrapClassName": "panel-group"
-        },
-        "list": {
-            "items": {
-                "id": {
-                    "ui:disabled": true,
-                    "ui:help": "This value is generated automatically from the sensor displaygroups option values"
-                },
-                "options": {
-                    "ui:widget": {
-                        "component": "checkboxes",
-                        "options": {
-                            "inline": true
-                        }
-                    }
                 }
             }
         }

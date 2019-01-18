@@ -1,14 +1,34 @@
 ## Usage
 
-__signalk-sensor-log__ will not run until it has been activated from the
-Signal K Node server console.
+__signalk-sensor-log__ will not run until it has been activated from its
+plugin configuration panel in the Signal K Node server console (see below).
 
-The plugin is shipped so that when started for first activation it will attempt
-to acquire tank level data streams and if these are present it will configure
-itself to log and chart this data.
+When the configuration panel is opened for the first time the plugin will
+acquire all available data sources from the host Signal K Node server and
+present these for user review before instantiating any databases.
 
-It is probable that will want to change or expand this simple default to suit
-your own installation requirement.
+Editing of the acquired data sources is optional but advisable for the
+following reasons:
+
+1. There may be very many data sources and reducing this number reduces the
+workload placed on the host system.
+For example, on my modestly equipped vessel Signal K generates several hundred
+data sources many of which are of no substantive interest (for example, some
+paths return constant values reporting tank capacity whilst others return
+undefined or text values).
+
+2. RRDTool and __signalk-sensor-log__ are optimised for handling integer data
+sources and some Signal K data will need factoring up in order to be logged
+in a meaningful way.
+For example, Signal K reports tank capacities as decimal ratios in the range
+0.0 to 1.0: factoring these up by 100 gives a percentage which can be better
+handled by the logging system.
+
+Whilst it is sensible on first execution prune the data source list to suit
+your own installation requirement it may be wise not to prune too aggressively.
+Having a little-used data source available in a database for plotting is much
+better than having to re-initialise a database so that it can accommodate a
+data source that was never recorded in the first place.
 
 ### Activating the plugin for the first time
 
@@ -16,17 +36,124 @@ In the server main menu navigate to _Server->Plugin config_ and select _Sensor
 Log_to open the __signalk-sensor-log__ configuration panel.
 
 The configuration panel consist of a Signal K Node server widget containing
-state and logging options, a collection of plugin specific configuration
-options, and finally a _Submit_ button which saves the plugin configuration,
-commits any changes and, starts or stops the plugin dependent upon the state
-of the _Active_ option.
+_Active_ and _Debug log_ options, three plugin specific configuration tabs
+(labelled _Data sources_, _Display groups_ and _Advanced options_), and
+finally a _Submit_ button which saves the plugin configuration, commits any
+changes and starts or stops the plugin dependent upon the state of the
+_Active_ option.
 
-Configuration options specific to _signalk-sensor-log_ are organised under a
-number of expandable tabs, each concerned with some specific aspect of the
-plugin's operation and each described in detail below.
+To activate the plugin you must check the _Active_ option and click _Submit_,
+but, given the discussion above, you may prefer to review and adjust the
+contents of the _Data sources_ tab before doing this.
 
-To activate the plugin you must check the _Activate_ option and click _Submit_,
-but you may prefer to review at least the _sensor_ tab before doing this.
+### _Data sources_ configuration options
+
+Selecting the _Data sources_ tab expands (and collapses) an alphabetically
+sorted list of the data sources which the plugin will log.
+
+Individual data sources can be deleted using the __[x]__ button and new sources
+added using the __[+]__ button.
+On an already executing plugin, it is possible to re-scan the host Signal K
+server and re-build the entire list of data sources using one of the _RRD
+database_ configuration options.
+
+Options available for each entry are:
+
+__path__  
+The Signal K path identifying the data source.
+
+__multiplier__  
+An interger multiplier which will be applied to every value read from the data
+source before it is saved in a database.
+ 
+__Chart groups__  
+A space separated list of the names of the display groups which should render
+this data source.
+Display group names must be alphanumeric strings, containing no punctuation or
+whitespace characters.
+The plugin will automatically create configuration entries under the _Display
+groups_ tab for all named groups.
+ 
+### _Display groups_ configuration options
+
+Selecting the _Display groups_ tab expands (and collapses) a list of display
+groups as identified by all the __Display groups__ options in each data source.
+Entries in this list appear when they are mentioned in a data source and
+disappear when all references to them are removed.
+
+Options available for each entry are:
+
+__Group name__  
+The name of the chart group (not editable).
+This derives from a value in the _Chart groups_ option of entries in the
+_Data sources_ list.
+
+__Chart title__  
+Text to be used as a title for all charts in this group.
+
+__Y-axis label__  
+Text to be used a the y-axis label for all charts in this group.
+
+__Min value__  
+Y-axis minimum value.
+If this option is left blank the y-axis minimum value will scale automatically.
+
+__Max value__  
+Y-axis maximum value.
+If this option is left blank the y-axis maximum value will scale automatically.
+
+__Options->Trace__  
+Spread all data source values across the y-axis to give an EEG-style render.
+Useful for monitoring things like switchbank channel state changes.
+
+__Options->Min__  
+Display legends as a table and add a column showing the minimum value of all
+data sources.
+
+__Options->Max__  
+Display legends as a table and add a column showing the maximum value of all
+data sources.
+
+__Options->Avg__  
+Display legends as a table and add a column showing the mean value of all
+data sources.
+
+__Options->Derived__  
+Display legends as a table and add a column showing the integral value of all
+traces.
+
+__Options->Last__  
+Display legends as a table and add a column showing the most recent value of all
+traces.
+
+__Data sources__
+
+This option lists each data source that has been assigned to this display group.
+The order of items in the list can be shuffled using the sidebar controls: data
+sources are rendered top down (this is significant when data sources are
+stacked (see below)).
+
+Options available for each data source are:
+
+__path__  
+The path name of the data source (this value cannot be changed).
+
+__name__  
+The name to be used when rendering the data source.
+The default value is a mangled version of the data source path name.
+
+__color__  
+The color to be used when rendering the data source.
+
+__options->area__  
+Data sources are normally plotted as a line, but this will render the data as
+an area - may be useful with...
+
+__options->stack__  
+Data source will be stacked on top of previously rendered, stacked, data
+sources.
+
+### Advanced configuration options
 
 ### rrdservices configuration tab
 

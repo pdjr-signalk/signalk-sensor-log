@@ -34,8 +34,8 @@ def init(config):
     CHART_CANVASCOLOR = CONF["chart"]["canvascolor"]
     CHART_DIRECTORY = CONF['chart']['directory']
     CHART_FONTCOLOR = CONF["chart"]["fontcolor"]
-    DISPLAYGROUP_LIST = CONF['displaygroup']['list']
-    SENSOR_LIST = CONF['sensor']['list']
+    DISPLAYGROUP_LIST = CONF['displaygroups']
+    SENSOR_LIST = CONF['paths']
     RRDDATABASE_DATABASES = CONF['rrddatabase']['databases']
     RRDDATABASE_DIRECTORY = CONF['rrddatabase']['directory']
     return True
@@ -46,13 +46,13 @@ def makeGraph(group, chart, directory):
     if group in map(lambda x: x['id'], DISPLAYGROUP_LIST):
         displayGroup = reduce(lambda a, v: (v if (v['id'] == group) else a), DISPLAYGROUP_LIST, None)
         if (chart in map(lambda s: s['name'], PERIODS)):
-            sensors = filter(lambda s: (group in s["displaygroups"]), SENSOR_LIST)
-            dsPaths = map(lambda s: s['path'], sensors)
-            dsIds = map(lambda x: makeIdFromPath(x), dsPaths)
-            dsDatabases = map(lambda x : getDatabaseForPath(x, RRDDATABASE_DATABASES), dsPaths);
-            dsColors = map(lambda x: x['displaycolor'], sensors)
-            dsNames = map(lambda x: x['name'], sensors)
-            dsLineTypes = map(lambda x: 'AREA' if (('stackable' in x['options']) and ('stack' in displayGroup['options'])) else 'LINE', sensors)
+            dsPaths = map(lambda datasource: datasource['path'], displayGroup['datasources'])
+            dsIds = map(lambda datasource: makeIdFromPath(datasource['path'], RRDDATABASE_DATABASES), displayGroup['datasources'])
+            dsDatabases = map(lambda displaygroup : getDatabaseForPath(displaygroup['path'], RRDDATABASE_DATABASES), displayGroup['datasources']);
+            dsColors = map(lambda datasource: datasource['color'], displayGroup['datasources'])
+            dsNames = map(lambda datasource: datasource['name'], displayGroup['datasources'])
+            dsLineTypes = map(lambda datasource: 'AREA' if ('area' in datasource['options']) else 'LINE', displayGroup['datasources'])
+            dsStack = map(lambda datasource: ('stack' in datasource['options']), displayGroup['datasources'])
 
             command = RRDTOOL
             command += " graph '" + directory + "/" + group + "." + chart + "." + CHART_IMAGETYPE.lower() + "'"
@@ -76,20 +76,33 @@ def makeGraph(group, chart, directory):
     
             for index, dsid in enumerate(dsIds):
                 command += " DEF:" + dsid + "=" + RRDDATABASE_DIRECTORY + "/" + dsDatabases[index] + ":" + dsid + ":" + reduce(lambda a, v: (v['consolidate'] if (v['name'] == chart) else a), PERIODS,"AVERAGE")
-                command += " VDEF:" + dsid + "min=" + dsid + ",MINIMUM";
-                command += " VDEF:" + dsid + "max=" + dsid + ",MAXIMUM";
-                command += " VDEF:" + dsid + "avg=" + dsid + ",AVERAGE";
+                command += (" VDEF:" + dsid + "min=" + dsid + ",MINIMUM") if ("min" in displayGroup["options"]) else ""
+                command += (" VDEF:" + dsid + "max=" + dsid + ",MAXIMUM") if ("max" in displayGroup["options"]) else ""
+                command += (" VDEF:" + dsid + "avg=" + dsid + ",AVERAGE") if ("avg" in displayGroup["options"]) else ""
+                command += (" VDEF:" + dsid + "lst=" + dsid + ",LAST") if ("lst" in displayGroup["options"]) else ""
+                command += (" CDEF:" + dsid + "eeg=" + dsid + "," + str(index * 1.1) + ",+") if ("eeg" in displayGroup["options"]) else ""
                 #//command += " CDEF:" + dsname + "filled=" + dsname + ",UN," + dsname + "avg," + dsname + ",IF";
-                command += " CDEF:" + dsid + "filled=" + dsid + ",UN,PREV," + dsid + ",IF"
-                command += " CDEF:" + dsid + "fixed=" + dsid + "filled," + str(reduce(lambda a, v: (v['seconds'] if (v['name'] == chart) else a), PERIODS,"1")) + ",/"
-                command += " VDEF:" + dsid + "total=" + dsid + "fixed,TOTAL"
-            command += " COMMENT:'" + "Data stream".ljust(19) + "Min  ".rjust(13) + "Max  ".rjust(14) + "Average  ".rjust(14) + "Derived".rjust(13) + "\\n'"; 
+                #command += " CDEF:" + dsid + "filled=" + dsid + ",UN,PREV," + dsid + ",IF"
+                #command += " CDEF:" + dsid + "fixed=" + dsid + "filled," + str(reduce(lambda a, v: (v['seconds'] if (v['name'] == chart) else a), PERIODS,"1")) + ",/"
+                #command += " VDEF:" + dsid + "total=" + dsid + "fixed,TOTAL"
+
+            comments = reduce(lambda a, v: (a | (v in displayGroup["options"])), ["min","max","avg","lst"], False)
+            command += (" COMMENT:'" + "Data source".ljust(23) + "'") if (comments) else ""
+            command += (" COMMENT:'" + "Min  ".rjust(10) + "'") if ("min" in displayGroup["options"]) else ""
+            command += (" COMMENT:'" + "Max  ".rjust(10) + "'") if ("max" in displayGroup["options"]) else ""
+            command += (" COMMENT:'" + "Average  ".rjust(10) + "'") if ("avg" in displayGroup["options"]) else ""
+            command += (" COMMENT:'" + "Last  ".rjust(10) + "'") if ("lst" in displayGroup["options"]) else ""
+            command += (" COMMENT:'\\n'") if (comments) else "" 
+            #command += " COMMENT:'" + "Data stream".ljust(19) + "Min  ".rjust(13) + "Max  ".rjust(14) + "Average  ".rjust(14) + "Derived".rjust(13) + "\\n'"; 
             for i, dsid in enumerate(dsIds):
-                command += " " + dsLineTypes[i] + ":" + dsid + dsColors[i] + ":'" + dsNames[i].ljust(15)  + "'" + (":STACK" if (dsLineTypes[i] == "AREA") else "")
-                command += " GPRINT:" + dsid + "min:'%10.2lf  '"
-                command += " GPRINT:" + dsid + "max:'%10.2lf  '"
-                command += " GPRINT:" + dsid + "avg:'%10.2lf  '"
-                command += " GPRINT:" + dsid + "total:'%10.2lf\\n'"
+                plot = (dsid + "eeg") if ("eeg" in displayGroup["options"]) else dsid
+                command += " " + dsLineTypes[i] + ":" + plot + dsColors[i] + ":'" + dsNames[i].ljust(19)  + "'" + (":STACK" if (dsStack[i]) else "")
+                command += (" GPRINT:" + dsid + "min:'%10.2lf'") if ("min" in displayGroup["options"]) else ""
+                command += (" GPRINT:" + dsid + "max:'%10.2lf'") if ("max" in displayGroup["options"]) else ""
+                command += (" GPRINT:" + dsid + "avg:'%10.2lf'") if ("avg" in displayGroup["options"]) else ""
+                command += (" GPRINT:" + dsid + "lst:'%10.2lf'") if ("lst" in displayGroup["options"]) else ""
+                #command += (" GPRINT:" + dsid + "total:'%10.2lf\\n'"
+                command += (" COMMENT:'\\n'") if (comments) else ""
 
             call(command, shell=True)
     return command
@@ -98,17 +111,24 @@ def getDatabaseForPath(p, databases):
     retval = None
     for database in databases:
         dbname = database['name']
-        for path in database['paths']:
-            if (path == p):
+        for datasource in database['datasources']:
+            if (datasource['path'] == p):
                 retval = dbname
                 break
         if (retval != None):
             break
     return(retval)
  
-def makeIdFromPath(path):
-    parts = re.split('\.', path)
-    return ''.join(parts[1:-1]).lower()
+def makeIdFromPath(p, databases):
+    retval = None
+    for database in databases:
+        for datasource in database['datasources']:
+            if (datasource['path'] == p):
+                retval = datasource['name']
+                break
+        if (retval != None):
+            break;
+    return(retval)
 
 def dropPrivileges(user, group):
     import pwd, grp

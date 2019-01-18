@@ -1,7 +1,107 @@
 {
     "type": "object",
     "properties": {
+        "paths": {
+            "title": "Data sources",
+            "type": "array",
+            "default": [],
+            "items": {
+                "type": "object",
+				"required": ["path"],
+                "properties": {
+                    "path": {
+                        "title": "Path",
+                        "type": "string",
+                        "default": ""
+                    },
+                    "multiplier": {
+                        "title": "Multiplier",
+                        "type": "number",
+                        "default": "%%_DEFAULT_SENSOR_MULTIPLIER_%%"
+                    },
+                    "displaygroups": {
+                        "title": "Display groups",
+                        "type": "string",
+                        "default": "%%_DEFAULT_SENSOR_DISPLAYGROUPS_%%"
+                    }
+                }
+            }
+        },
+        "displaygroups": {
+	        "title": "Display groups",
+	        "type": "array",
+	        "default": [],
+	        "items": {
+	            "type": "object",
+	            "properties": {
+	                "id": {
+	                    "title": "Display group id",
+	                    "type": "string",
+	                    "default": ""
+	                },
+	                "title": {
+	                    "title": "Chart title",
+	                    "type": "string",
+	                    "default": "%%_DEFAULT_DISPLAYGROUP_TITLE_%%"
+	                },
+	                "ylabel": {
+	                    "title": "Chart y-axis label",
+	                    "type": "string",
+	                    "default": "%%_DEFAULT_DISPLAYGROUP_YLABEL_%%"
+	                },
+	                "ymin": {
+	                    "title": "Min value",
+	                    "type": "string",
+	                    "default": "%%_DEFAULT_DISPLAYGROUP_YMIN_%%"
+	                },
+	                "ymax": {
+	                    "title": "Max value",
+	                    "type": "string",
+	                    "default": "%%_DEFAULT_DISPLAYGROUP_YMAX_%%"
+	                },
+	                "options": {
+	                    "title": "Chart options",
+	                    "type": "array",
+                        "default": "%%_DEFAULT_DISPLAYGROUP_OPTIONS_%%",
+                        "items": {
+                            "type": "string",
+                            "enum": [ "eeg", "stack", "min", "max", "avg", "der", "lst" ],
+                            "enumNames": [ "EEG", "Stack", "Min", "Max", "Avg", "Derived", "Last" ]
+                        },
+                        "uniqueItems": true
+                    },
+                    "datasources": {
+                        "title": "Data sources",
+                        "type":"array",
+                        "default": [],
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "path": {
+                                    "type": "string"
+                                },
+                                "name": {
+                                    "type": "string"
+                                },
+                                "color": {
+                                    "type": "string"
+                                },
+                                "options": {
+                                    "type": "array",
+                                    "items": {
+                                        "type": "string",
+                                        "enum": ["area","stack"]
+                                    },
+                                    "uniqueItems": true
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        },
         "rrdservices": {
+            "title": "RRD services",
             "type": "object",
             "properties": {
                 "rrdcachedsocket": {
@@ -17,26 +117,27 @@
             }
         },
         "rrddatabase": {
+            "title": "RRD database",
             "type": "object",
             "properties": {
+                "updateinterval": {
+                    "title": "Update interval",
+                    "type": "number",
+                    "default": "%%_DEFAULT_RRDDATABASE_UPDATEINTERVAL_%%"
+                },
                 "directory": {
                     "title": "Directory in which to store rrd databases",
                     "type": "string",
                     "default": "%%_DEFAULT_RRDDATABASE_DIRECTORY_%%"
                 },
-                "updateinterval": {
-                    "title": "Database update interval in seconds",
-                    "type": "number",
-                    "default": "%%_DEFAULT_RRDDATABASE_UPDATEINTERVAL_%%"
-                },
                 "options": {
-                    "title": "RRD database options",
+                    "title": "Options",
                     "type": "array",
                     "default": "%%_DEFAULT_RRDDATABASE_OPTIONS_%%",
                     "items": {
                         "type": "string",
-                        "enum": [ "plug", "autocreate", "createnow" ],
-                        "enumNames": [ "Plug data holes", "Recreate database if plugin list changes", "Recreate database now" ]
+                        "enum": [ "autocreate", "rebuild" ],
+                        "enumNames": [ "Silently create missing databases", "Re-scan server and re-build databases" ]
                     },
                     "uniqueItems": true
                 },
@@ -50,20 +151,25 @@
                                 "type": "string",
                                 "default": ""
                             },
-                            "paths": {
+                            "datasources": {
                                 "type": "array",
                                 "default": [],
                                 "items": {
-                                    "type": "string",
-                                    "default": ""
-                                }
-                            },
-                            "values": {
-                                "type": "array",
-                                "default": [],
-                                "items": {
-                                    "type": "number",
-                                    "default": 0
+                                    "type": "object",
+                                    "properties": {
+                                        "name": {
+                                            "type": "string",
+                                            "default": ""
+                                        },
+                                        "path": {
+                                            "type": "string",
+                                            "default": ""
+                                        },
+                                        "value": {
+                                            "type": "number",
+                                            "default": 0
+                                        }
+                                    }
                                 }
                             }
                         }
@@ -88,6 +194,7 @@
             }
         },
         "chart": {
+            "title": "RRD charts",
             "type": "object",
             "properties": {
                 "generatecharts": {
@@ -139,128 +246,6 @@
                         "type": "string",
                         "enum": [ "updates", "notifications", "warnings", "errors" ],
                         "enumNames": [ "Database updates", "Notifications", "Warnings", "Errors" ]
-                    },
-                    "uniqueItems": true
-                }
-            }
-        },
-        "sensor": {
-            "type": "object",
-            "properties": {
-                "selector": {
-                    "title": "Select sensor paths using this regex",
-                    "type": "string",
-                    "default": "%%_DEFAULT_SENSOR_SELECTOR_%%"
-                },
-                "currentselector": {
-                    "type": "string",
-                    "default": "%%_DEFAULT_SENSOR_SELECTOR_%%"
-                },
-                "rescan": {
-                    "title": "Scan host server and re-build sensor list",
-                    "type": "boolean",
-                    "default": "%%_DEFAULT_SENSOR_RESCAN_%%"
-                },
-                "list": {
-                    "title": "Sensor list",
-                    "type": "array",
-                    "default": "%%_DEFAULT_SENSOR_LIST_%%",
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "path": {
-                                "title": "Sensor path",
-                                "type": "string",
-                                "default": ""
-                            },
-                            "name": {
-                                "title": "Sensor name",
-                                "type": "string",
-                                "default": "%%_DEFAULT_SENSOR_NAME_%%"
-                            },
-                            "databases": {
-                                "title": "Databases",
-                                "type": "string",
-                                "default": "%%_DEFAULT_SENSOR_DATABASE_%%"
-                            }, 
-                            "displaycolor": {
-                                "title": "Color to use when rendering this sensor",
-                                "type": "string",
-                                "default": "%%_DEFAULT_SENSOR_DISPLAYCOLOR_%%"
-                            },
-                            "displaygroups": {
-                                "title": "Display groups which include this sensor",
-                                "type": "string",
-                                "default": "%%_DEFAULT_SENSOR_DISPLAYGROUPS_%%"
-                            },
-                            "multiplier": {
-                                "title": "Multiplier for sensor values",
-                                "type": "number",
-                                "default": "%%_DEFAULT_SENSOR_MULTIPLIER_%%"
-                            },
-                            "options": {
-                                "title": "Sensor options",
-                                "type": "array",
-                                "default": "%%_DEFAULT_SENSOR_OPTIONS_%%",
-                                "items": {
-                                    "type": "string",
-                                    "enum": [ "stackable" ],
-                                    "enumNames": [ "Stackable?" ]
-                                },
-                                "uniqueItems": true
-                            }
-                        }
-                    }
-                }
-            }
-        },
-        "displaygroup": {
-            "type": "object",
-            "properties": {
-	            "list": {
-	                "title": "Display groups",
-	                "type": "array",
-	                "default": "%%_DEFAULT_DISPLAYGROUP_LIST_%%",
-	                "items": {
-	                    "type": "object",
-	                    "properties": {
-	                        "id": {
-	                            "title": "Display group id",
-	                            "type": "string",
-	                            "default": ""
-	                        },
-	                        "title": {
-	                            "title": "Chart title",
-	                            "type": "string",
-	                            "default": "%%_DEFAULT_DISPLAYGROUP_TITLE_%%"
-	                        },
-	                        "ylabel": {
-	                            "title": "Chart y-axis label",
-	                            "type": "string",
-	                            "default": "%%_DEFAULT_DISPLAYGROUP_YLABEL_%%"
-	                        },
-	                        "ymin": {
-	                            "title": "Mnimum displayed value",
-	                            "type": "string",
-	                            "default": "%%_DEFAULT_DISPLAYGROUP_YMIN_%%"
-	                        },
-	                        "ymax": {
-	                            "title": "Maximum displayed value",
-	                            "type": "string",
-	                            "default": "%%_DEFAULT_DISPLAYGROUP_YMAX_%%"
-	                        },
-	                        "options": {
-	                            "title": "Chart options",
-	                            "type": "array",
-                                "default": "%%_DEFAULT_DISPLAYGROUP_OPTIONS_%%",
-                                "items": {
-                                    "type": "string",
-                                    "enum": [ "stack" ],
-                                    "enumNames": [ "Stack graph data" ]
-                                },
-                                "uniqueItems": true
-                            }
-                        }
                     },
                     "uniqueItems": true
                 }
