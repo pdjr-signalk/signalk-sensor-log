@@ -12,6 +12,18 @@ var index = 0;
  * script continues to initialise the display.
  */
 
+function basic() {
+    if (((config = JSON.parse(loadFile(CONFIG_FILE))) != null) && ((manifest = JSON.parse(loadFile(MANIFEST_FILE))) != null)) {
+        var urlParams = new URLSearchParams(window.location.search);
+        var group = (urlParams.has('group'))?urlParams.get('group'):manifest[0]['id'];
+        var chart = (urlParams.has('chart'))?urlParams.get('chart'):config.images[0]['id'];
+        loadImage(group, chart);
+    } else {
+        document.getElementById('missingfile').innerHTML = (config == null)?CONFIG_FILE:MANIFEST_FILE;
+        document.getElementById('error').style.display = 'block';
+    }
+}
+
 function init() {
     if (((config = JSON.parse(loadFile(CONFIG_FILE))) != null) && ((manifest = JSON.parse(loadFile(MANIFEST_FILE))) != null)) {
         var urlParams = new URLSearchParams(window.location.search);

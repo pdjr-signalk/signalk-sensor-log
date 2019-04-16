@@ -16,7 +16,7 @@
 
 const fs = require('fs');
 const bacon = require('baconjs');
-const kellycolors = require('./lib/kellycolors');
+const Kellycolors = require('./lib/kellycolors');
 const rrdtool = require('./lib/rrdtool');
 const Schema = require('./lib/schema.js');
 const utils = require("./lib/utils.js");
@@ -52,16 +52,9 @@ module.exports = function(app) {
      * values by interrogting the host application environment.
      */
 	plugin.schema = function() {
-        if (DEBUG) console.log("plugin.schema()...");
+        if (DEBUG) log.N("plugin.schema()...", false);
 
         var schema = Schema.createSchema(PLUGIN_SCHEMA_FILE, CONFIG);
-        var paths = utils.createPathObjects(utils.filterAvailablePaths(app, ["notifications"]), undefined, createPathObject);
-        var databases = utils.createDatabasesFromPaths(paths, undefined, makeIdFromPath);
-        var displaygroups = utils.createDisplaygroupsFromPaths(paths, undefined, createDisplaygroupObject);
-        schema.insertValue("properties.paths.default", paths);
-        schema.insertValue("properties.rrddatabase.properties.databases.default", databases);
-        schema.insertValue("properties.displaygroups.default", displaygroups);
-        fs.writeFileSync(__dirname + "/out", JSON.stringify(schema.getSchema()));
         return(schema.getSchema());
     };
 
@@ -69,7 +62,7 @@ module.exports = function(app) {
      * Load the plugin's react:json ui:schema from disk file.
      */
 	plugin.uiSchema = function() {
-        if (DEBUG) console.log("plugin.uiSchema()...");
+        if (DEBUG) log.N("plugin.uiSchema()...", false);
 
         var schema = Schema.createSchema(PLUGIN_UISCHEMA_FILE);
         return(schema.getSchema());
@@ -81,143 +74,167 @@ module.exports = function(app) {
      * few sanity checks before entering the production loop.
      */
 	plugin.start = function(options) {
-        if (DEBUG) console.log("plugin.start(%s)...", JSON.stringify(options));
+        if (DEBUG) log.N("plugin.start(" + JSON.stringify(options) + ")...", false);
 
         Promise.all([
             rrdtool.openCacheD(options.rrdservices.rrdcachedsocket, handleRrdcachedOutput),
             rrdtool.openChartD(options.chart.generatecharts?options.rrdservices.rrdchartdport:0)
         ]).then(function ([ cachedConnected, chartdConnected ]) {
             if (cachedConnected) {
+                if (DEBUG) log.N("connected to cache daemon and chart daemon", false);
 
-				// If If the user has changed the sensor selector regex or has explicitly
-		        // requested a re-scan of sensor paths, then we try to load a list of
-		        // sensors using the selector regex.
-				//
-                var proposedDatabases, missingDatabases = [], changedDatabases = [];
-                if (options.rrddatabase.options.includes("rebuild")) {
-                    log.N("database rebuild: starting by sleeping for 15 seconds");
-                    options.rrddatabase.options = [];
-                    setTimeout(function() {
-                        options.paths = utils.createPathObjects(utils.filterAvailablePaths(app, ["notifications"]), options.paths, createPathObject);
-                        log.N("database rebuild: identified " + options.paths.length + " data source(s)");
-
-                        proposedDatabases = utils.createDatabasesFromPaths(options.paths, makeIdFromPath);
-                        missingDatabases = utils.getMissingDatabases(proposedDatabases, options.rrddatabase.directory);
-                        log.N("database rebuild: will create " + missingDatabases.length + " missing database(s)");
-                        changedDatabases = utils.getChangedDatabases(proposedDatabases, options.rrddatabase.databases);
-                        log.N("database rebuild: will recreate " + changedDatabases.length + " changed database(s)");
-                    }, 15000);
-                }
-
-                options.paths = options.paths.sort((a,b) => ((a['path'] < b['path'])?-1:((a['path'] > b['path'])?1:0)));
-
-                if (options.rrddatabase.options.includes("autocreate")) {
-                    proposedDatabases = utils.createDatabasesFromPaths(options.paths, options.databases,makeIdFromPath);
-                    missingDatabases = utils.getMissingDatabases(proposedDatabases, options.rrddatabase.directory);
-                    log.N("database autocreate: will create " + missingDatabases.length + " missing database(s)");
-                }
-
-                utils.mergeDatabases(changedDatabases, missingDatabases).forEach(database => {
-			        log.N("creating new database '" + database['name'] + "' for " + database['datasources'].length + " paths");
-			        rrdtool.createDatabase(
-                        database['name'],
-                        options.rrddatabase.updateinterval, 
-                        0, 
-                        CONFIG.DATAMAX, 
-                        database['datasources'].map(datasource => datasource['name']), 
-                        options.rrddatabase.periods
-                    )
-                    .then(result => {
-                        if (!result) {
-                            log.E("error creating database '" + database['name'] + "'");
-                            return;
-                        } else {
-                            log.N("created new database '" +  database['name'] + "'");
-                            options.rrddatabase.databases = utils.updateDatabases(options.rrddatabase.databases, database);
-                        }
-			        })
-                    .catch(err => {
-                        log.E("fatal error: " + err);
-                        return;
-                    });
+                // Normalise database definitions by sorting database entries and datasource
+                // entries by name.
+                options.databases = options.databases.sort((a,b) => ((a.name < b.name)?-1:((a.name > b.name)?1:0)));
+                options.databases = options.databases.map(db => {
+                    db.datasources = db.datasources.sort((a,b) => ((a.name < b.name)?-1:((a.name > b.name)?1:0)));
+                    return(db);
                 });
 
-                if (options.rrddatabase.databases.length == 0) {
-			        log.E("there are no defined databases");
-			        return;
-                }
-
-                // Update the displaygroup options from the sensor list, just in-case
-                // the user has made any changes in plugin config.
-                //
-                options.displaygroups = utils.createDisplaygroupsFromPaths(options.paths, options.displaygroups, createDisplaygroupObject);
-
-                // Save plugin options.
-                //
-                app.savePluginOptions(options, function(err) {
-                    if (err) log.W("update of plugin options failed: " + err);
-                });
-
-
-                // Handle all the various chart generation possibilities and
-                // if it seems sensible, try and save a chart manifest file
-                // so that the webapp knows what's what.
-                //
-      	        if (options.displaygroups.length == 0) {
-                    log.W("disabling chart generation because there are no defined display groups");
-                    options.chart.generatecharts = false;
-                } else {
-		            if (options.chart.generatecharts) {
-                        writeManifest(CHART_MANIFEST_FILE, options.displaygroups, function(err) { if (err) log.W("update of chart manifest failed"); });
-                        if (!chartdConnected) log.W("disabling chart generation because rrdchartd cannot be reached");
+                var canProceed = true;
+                options.databases.forEach(database => {
+                    var dbdiskfile = options.rrddatabase.directory + "/" + database.name;
+                    var dbmin = 0;
+                    var dbmax = 10000;
+                    var create = false;
+                    if (!fs.existsSync(dbdiskfile)) {
+                        console.log("database '" + dbdiskfile + "' missing on disk");
+                        create = true;
                     } else {
-                        log.N("chart generation disabled by configuration option");
+                        if (!options.rrddatabase.databases.map(v => v.name).includes(database.name)) {
+                            console.log("database configuration mismatch");
+                            create = true;
+                        } else {
+                            if (options.rrddatabase.options.includes("rebuild")) {
+	                            var existingDatabaseDefinition;
+	                            if ((existingDatabaseDefinition = options.rrddatabase.databases.reduce((a,v) => (v.name == database.name), null)) != null) {
+	                                var requiredDatasources = database.datasources;
+	                                var existingDatasources = existingDatabaseDefinition.datasources;
+	                                if (!(create = (requiredDatasources.length != existingDatasources.length))) {
+	                                    for (var i = 0; i < requiredDatasources.length; i++) {
+	                                        requiredDatasources[i].getOwnPropertyNames.forEach(propertyName => {
+	                                            create  = (create || (requiredDatasources[i] != existingDatasources[i]));
+	                                        });
+	                                    }
+	                                }
+                                }
+                            }
+                        }
                     }
+                    if (create) { 
+			            if (rrdtool.createDatabase(
+                            database.name,
+                            options.rrddatabase.updateinterval, 
+                            dbmin, 
+                            dbmax, 
+                            database.datasources.map(datasource => datasource.name), 
+                            options.rrddatabase.periods
+                        )) {
+                            log.N("successfully created missing database '" + database.name + "'");
+                        } else {
+                            log.N("error creating missing database '" + database.name + "'");
+                            canProceed = false;
+                        }
+                    } 
+                });
+
+                // All databases have been made successfully, so copy the requested configuration
+                // to the actual configuration and save the application options to disk.
+                // 
+                    log.N(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
+                if (canProceed) {
+                    // Make configuration reflect requested state
+                    options.rrddatabase.databases = options.databases;
+                
+                    // Save plugin options.
+                    app.savePluginOptions(options, function(err) {
+                        if (err) log.E("update of plugin options failed: " + err);
+                        canProceed = false;
+                    });
                 }
 
-                var paths = utils.getAllDatabasePaths(options.rrddatabase.databases);
-		        var pathStreams = paths.map(path => app.streambundle.getSelfBus(path));
-                var pathMultipliers = paths.map(path => options.paths.reduce((a,x) => ((x['path'] == path)?x['multiplier']:a),1));
-    		    var tick = 1;
-                log.N("connected to " + pathStreams.length  + " sensor streams");
+                if (canProceed) {
+                    log.N(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
 
-                unsubscribes.push(bacon.interval((1000 * options.rrddatabase.updateinterval), 0).onValue(function(t) {
-                    var seconds = Math.floor(new Date() / 1000);
-    		        bacon.zipAsArray(pathStreams).onValue(function(vals) {
-                        var pathValues = vals.map((a,i) => (((a['value'] == null) || Number.isNaN(a['value']))?NaN:(Math.round(a['value'] * pathMultipliers[i]))));
-                        //if (options.logging.console.includes('updates')) log.N("connected to " + pathStreams.length + " sensor streams (" + pathValues.join(',') + ")");
-                        options.rrddatabase.databases = utils.setAllDatabaseValues(options.rrddatabase.databases, pathValues);
-                        options.rrddatabase.databases.forEach(database => {
-                            var dbname = database['name']
-                            if (options.logging.syslog.includes('updates')) log.N("updating '" + dbname + "' with " + JSON.stringify(database['values']));
-                            rrdtool.updateDatabase(dbname, seconds, database['datasources'].map(v => (v['value'] == NaN)?'U':v['value']))
-                            .then(result => {
-                                // silence is golden
-                            })
-                            .catch(err => {
-                                log.W("database update failed: " + err);
-                            });
-                        });
-
-                        return(bacon.noMore);
-                    });
-
-                    if (chartdConnected) {
-                        options.rrddatabase.periods
-                        .map(p => p['name'])
-                        .filter((v,i) => ((tick % options.rrddatabase.periods[i]['plotticks']) == 0))
-                        .forEach(chart => {
-                            options.displaygroups.map(g => g['id']).forEach(function(group) {
-                                rrdtool.createChart(group, chart)
-                                .then(result => {
-                                    if (!result) log.W("chart generation failed for '" + group + ", " + chart + "'");
-                                })
-                                .catch(err => {});
-                            });
-                        });
+                    // Handle all the various chart generation possibilities and if it seems sensible,
+                    // try and save a chart manifest file so that the webapp knows what's what.
+                    //
+      	            if (options.displaygroups.length == 0) {
+                        log.W("disabling chart generation because there are no defined display groups");
+                        options.chart.generatecharts = false;
+                    } else {
+		                if (options.chart.generatecharts) {
+                            writeManifest(CHART_MANIFEST_FILE, options.displaygroups, function(err) { if (err) log.W("update of chart manifest failed"); });
+                            if (!chartdConnected) log.W("disabling chart generation because rrdchartd cannot be reached");
+                        } else {
+                            log.W("chart generation disabled by configuration option");
+                        }
                     }
-                    tick++;
-                }));
+
+                    // Begin processing by flattening the databases structure into a one-dimensional
+                    // array of Signal K data streams and an equivalent array of multiplier functions.
+                    //
+                    var streams = [];
+                    var multipliers = [];
+                    options.rrddatabase.databases.forEach(database => {
+                        database.datasources.forEach(datasource => {
+		                    streams.push(app.streambundle.getSelfBus(datasource.path));
+                            multipliers.push(function(v) {
+                                if ((v == null) || (v == NaN)) {
+                                    return('U');
+                                } else {
+                                    var x = v * datasource.multiplier;
+                                    return(Math.round((x < datasource.min)?datasource.min:((x > datasource.max)?datasource.max:x)));
+                                }
+                            });
+
+                        });
+                    });
+                    log.N("connected to " + streams.length + " Signal K sensor streams");
+
+    		        var tick = 1;
+                    unsubscribes.push(bacon.interval((1000 * options.rrddatabase.updateinterval), 0).onValue(function(t) {
+                        var seconds = Math.floor(new Date() / 1000);
+    		            bacon.combineAsArray(streams).onValue(function(vals) {
+                            if (DEBUG) log.N("path values: " + JSON.stringify(vals), false);
+                            var pathValues = vals.map((v,i) => ((v)?((v.value)?multipliers[i](v.value):'U'):'U'));
+
+                            options.rrddatabase.databases.forEach(database => {
+                                var datasourceValues = pathValues.slice(0, database.datasources.length);
+                                //if (options.logging.console.includes('updates')) log.N("updating '" + database.name + "' with " + JSON.stringify(datasourceValues));
+                                rrdtool.updateDatabase(
+                                    database.name,
+                                    seconds,
+                                    datasourceValues)
+                                .then(result => {
+                                    // silence is golden
+                                })
+                                .catch(err => {
+                                    log.W("database update failed: " + err);
+                                });
+                                pathValues = pathValues.slice(database.datasources.length);
+                            });
+
+                            return(bacon.noMore);
+                        });
+
+                        if (options.chart.generatecharts && chartdConnected) {
+                            options.rrddatabase.periods
+                            .map(p => p['name'])
+                            .filter((v,i) => ((tick % options.rrddatabase.periods[i]['plotticks']) == 0))
+                            .forEach(chart => {
+                                options.displaygroups.map(g => g['id']).forEach(function(group) {
+                                    rrdtool.createChart(group, chart)
+                                    .then(result => {
+                                        if (!result) log.W("chart generation failed for '" + group + ", " + chart + "'");
+                                    })
+                                    .catch(err => {});
+                                });
+                            });
+                        }
+                        tick++;
+                    }));
+                }
             } else {
                 log.E("could not connect to cache daemon");
                 return;
@@ -237,47 +254,6 @@ module.exports = function(app) {
     function writeManifest(filename, displaygroups, callback) {
         fs.writeFile(filename, JSON.stringify(displaygroups.map(dg => ({ id: dg['id'], title: dg['title'] }))), callback);
     }
-
-	function createPathObject(path, existing) {
-        return({
-            "path": path,
-            "multiplier": (existing === undefined)?CONFIG.DEFAULT_SENSOR_MULTIPLIER:existing['multiplier'],
-	        "displaygroups": (existing === undefined)?"":existing['displaygroups']
-        });
-	}
-
-    function createDisplaygroupObject(name, paths, existing) {
-        var datasources = (existing === undefined)?[]:existing['datasources'];
-        paths.forEach(path => {
-            if (!datasources.map(ds => ds['path']).includes(path['path'])) {
-                datasources.push({ "path": path['path'], "name": makeIdFromPath(path['path']), "color": kellycolors.getNextColor(), "options": [] });
-            }
-        });
-        return({
-            "id": name,
-            "title": (existing === undefined)?CONFIG.DEFAULT_DISPLAYGROUP_TITLE:existing['title'],
-            "ylabel": (existing === undefined)?CONFIG.DEFAULT_DISPLAYGROUP_YLABEL:existing['ylabel'],
-            "ymin": (existing === undefined)?CONFIG.DEFAULT_DISPLAYGROUP_YMIN:existing['ymin'],
-            "ymax": (existing === undefined)?CONFIG.DEFAULT_DISPLAYGROUP_YMAX:existing['ymax'],
-            "options": (existing === undefined)?CONFIG.DEFAULT_DISPLAYGROUP_OPTIONS:existing['options'],
-            "datasources": datasources
-        });
-	}
-
-	function makeIdFromPath(path) {
-        var retval = "";
-        var parts = path.replace(/([A-Z])/g, '.$1').replace(/([0-9]+)/g, '.$1').replace("-", ".").split(".");
-        var start = (parts[0] == "notifications")?2:1;
-        for (var i = start; i < parts.length; i++) {
-            retval += parts[i].toLowerCase().substr(0, 3);
-        }
-        return(retval);
-	}
-
-	function makeDatabaseNameFromPath(path, suffix) {
-        if (DEBUG) console.log("makeDatabaseNameFromPath('" + path + "')...");
-		return(path.substr(0, path.indexOf('.')).replace(/[^0-9a-z]/g, '') + suffix);
-	}
 
     function loadSystemdConfig(filename) {
         var retval = {};

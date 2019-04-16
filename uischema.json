@@ -1,5 +1,5 @@
 {
-    "paths": {
+    "databases": {
         "ui:field": "collapsible",
         "collapse": {
             "field": "ArrayField",
@@ -11,15 +11,25 @@
             "removable": true
         },
         "items": {
-            "path": {
-                "classNames": "col-sm-5",
-                "ui:disabled": false
-            },
-            "multiplier": {
-                "classNames": "col-sm-2"
-            },
-            "displaygroups": {
-                "classNames": "col-sm-5"
+            "name": "col-sm-2",
+            "datasources": {
+                "items": {
+                    "name": {
+                        "classNames": "col-sm-4"
+                    },
+                    "path": {
+                        "classNames": "col-sm-8"
+                    },
+                    "multiplier": {
+                        "classNames": "col-sm-4"
+                    },
+                    "min": {
+                        "classNames": "col-sm-4"
+                    },
+                    "max": {
+                        "classNames": "col-sm-4"
+                    }
+                }
             }
         }
     },
@@ -30,14 +40,13 @@
             "wrapClassName": "panel-group"
         },
         "ui:options": {
-            "addable": false,
+            "addable": true,
             "orderable": false,
-            "removable": false
+            "removable": true
         },
         "items": {
             "id": {
-                "classNames": "col-sm-4",
-                "ui:disabled": true
+                "classNames": "col-sm-4"
             },
             "title": {
                 "classNames": "col-sm-4"
@@ -66,15 +75,14 @@
                     "orderable": true
                 },
                 "items": {
-                    "path": {
-                        "classNames": "col-sm-4",
-                        "ui:disabled": false
+                    "datasource": {
+                        "classNames": "col-sm-4"
                     },
-                    "name": {
+                    "displayname": {
                         "classNames": "col-sm-3"
                     },
 		            "color": {
-		                "classNames": "col-sm-2",
+		                "classNames": "col-sm-1",
 		                "ui:widget": "color"
 		            },
 		            "options": {

@@ -1,28 +1,46 @@
 {
     "type": "object",
     "properties": {
-        "paths": {
-            "title": "Data sources",
+        "databases": {
+            "title": "Database definitions",
             "type": "array",
-            "default": [],
+            "default": [ { "name": "", "datasources": [ { "name": "", "path": "", "multiplier": 1 } ] } ],
             "items": {
                 "type": "object",
-				"required": ["path"],
                 "properties": {
-                    "path": {
-                        "title": "Path",
+                    "name": {
+                        "title": "database name",
                         "type": "string",
                         "default": ""
                     },
-                    "multiplier": {
-                        "title": "Multiplier",
-                        "type": "number",
-                        "default": "%%_DEFAULT_SENSOR_MULTIPLIER_%%"
-                    },
-                    "displaygroups": {
-                        "title": "Display groups",
-                        "type": "string",
-                        "default": "%%_DEFAULT_SENSOR_DISPLAYGROUPS_%%"
+                    "datasources": {
+                        "title": "data sources",
+                        "type": "array",
+                        "items": {
+                            "type": "object",
+                            "properties": {
+                                "name": {
+                                    "type": "string",
+                                    "default": ""
+                                },
+                                "path": {
+                                    "type": "string",
+                                    "default": ""
+                                },
+                                "multiplier": {
+                                    "type": "number",
+                                    "default": "%%_DEFAULT_SENSOR_MULTIPLIER_%%"
+                                },
+                                "min": {
+                                    "type": "number",
+                                    "default": 0
+                                },
+                                "max": {
+                                    "type": "number",
+                                    "default": 100
+                                }
+                            }
+                        }
                     }
                 }
             }
@@ -77,10 +95,11 @@
                         "items": {
                             "type": "object",
                             "properties": {
-                                "path": {
+                                "datasource": {
+                                    "title": "database:datasource",
                                     "type": "string"
                                 },
-                                "name": {
+                                "displayname": {
                                     "type": "string"
                                 },
                                 "color": {
@@ -88,6 +107,7 @@
                                 },
                                 "options": {
                                     "type": "array",
+                                    "default": [],
                                     "items": {
                                         "type": "string",
                                         "enum": ["area","stack"]
@@ -143,37 +163,7 @@
                 },
                 "databases": {
                     "type": "array",
-                    "default": [],
-                    "items": {
-                        "type": "object",
-                        "properties": {
-                            "name": {
-                                "type": "string",
-                                "default": ""
-                            },
-                            "datasources": {
-                                "type": "array",
-                                "default": [],
-                                "items": {
-                                    "type": "object",
-                                    "properties": {
-                                        "name": {
-                                            "type": "string",
-                                            "default": ""
-                                        },
-                                        "path": {
-                                            "type": "string",
-                                            "default": ""
-                                        },
-                                        "value": {
-                                            "type": "number",
-                                            "default": 0
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
+                    "default": []
                 },
                 "periods": {
                     "title": "Database definition",

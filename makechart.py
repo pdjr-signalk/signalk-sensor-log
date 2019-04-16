@@ -46,11 +46,10 @@ def makeGraph(group, chart, directory):
     if group in map(lambda x: x['id'], DISPLAYGROUP_LIST):
         displayGroup = reduce(lambda a, v: (v if (v['id'] == group) else a), DISPLAYGROUP_LIST, None)
         if (chart in map(lambda s: s['name'], PERIODS)):
-            dsPaths = map(lambda datasource: datasource['path'], displayGroup['datasources'])
-            dsIds = map(lambda datasource: makeIdFromPath(datasource['path'], RRDDATABASE_DATABASES), displayGroup['datasources'])
-            dsDatabases = map(lambda displaygroup : getDatabaseForPath(displaygroup['path'], RRDDATABASE_DATABASES), displayGroup['datasources']);
+            dsIds = map(lambda datasource: datasource['datasource'][datasource['datasource'].find(':') + 1:], displayGroup['datasources'])
+            dsDatabases = map(lambda datasource: datasource['datasource'][0: datasource['datasource'].find(':')], displayGroup['datasources'])
             dsColors = map(lambda datasource: datasource['color'], displayGroup['datasources'])
-            dsNames = map(lambda datasource: datasource['name'], displayGroup['datasources'])
+            dsNames = map(lambda datasource: datasource['displayname'], displayGroup['datasources'])
             dsLineTypes = map(lambda datasource: 'AREA' if ('area' in datasource['options']) else 'LINE', displayGroup['datasources'])
             dsStack = map(lambda datasource: ('stack' in datasource['options']), displayGroup['datasources'])
 
@@ -106,29 +105,6 @@ def makeGraph(group, chart, directory):
 
             call(command, shell=True)
     return command
-
-def getDatabaseForPath(p, databases):
-    retval = None
-    for database in databases:
-        dbname = database['name']
-        for datasource in database['datasources']:
-            if (datasource['path'] == p):
-                retval = dbname
-                break
-        if (retval != None):
-            break
-    return(retval)
- 
-def makeIdFromPath(p, databases):
-    retval = None
-    for database in databases:
-        for datasource in database['datasources']:
-            if (datasource['path'] == p):
-                retval = datasource['name']
-                break
-        if (retval != None):
-            break;
-    return(retval)
 
 def dropPrivileges(user, group):
     import pwd, grp
@@ -199,5 +175,5 @@ if __name__ == '__main__':
             server.serve_forever()
         else:
             if (len(args) > 1):
-                makeGraph(args[0], args[1], ".")
+                print(makeGraph(args[0], args[1], "."))
 
