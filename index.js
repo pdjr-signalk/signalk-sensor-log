@@ -18,9 +18,9 @@ const fs = require('fs');
 const bacon = require('baconjs');
 const Kellycolors = require('./lib/kellycolors');
 const rrdtool = require('./lib/rrdtool');
-const Schema = require('./lib/schema.js');
+const Schema = require('./lib/signalk-schema/Schema.js');
 const utils = require("./lib/utils.js");
-const Log = require("./lib/log.js");
+const Log = require("./lib/signalk-liblog/Log.js");
 
 const DEBUG = false;
 const PLUGIN_CONFIG_FILE = __dirname + "/config.json";
@@ -43,7 +43,7 @@ module.exports = function(app) {
      * file.
      */
 
-    const log = new Log(app.setProviderStatus, app.setProviderError, plugin.id);
+    const log = new Log(plugin.id, { ncallback: app.setProviderStatus, ecallback: app.setProviderError });
     const CONFIG = Schema.createSchema(PLUGIN_CONFIG_FILE, loadSystemdConfig(SYSTEMD_CONFIG_FILE)).getSchema(); 
 
     /**
@@ -141,7 +141,6 @@ module.exports = function(app) {
                 // All databases have been made successfully, so copy the requested configuration
                 // to the actual configuration and save the application options to disk.
                 // 
-                    log.N(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
                 if (canProceed) {
                     // Make configuration reflect requested state
                     options.rrddatabase.databases = options.databases;
@@ -154,8 +153,6 @@ module.exports = function(app) {
                 }
 
                 if (canProceed) {
-                    log.N(">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>");
-
                     // Handle all the various chart generation possibilities and if it seems sensible,
                     // try and save a chart manifest file so that the webapp knows what's what.
                     //

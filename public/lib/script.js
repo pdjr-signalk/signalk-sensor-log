@@ -106,7 +106,7 @@ function next() {
 }
 
 function goto(group, chart) {
-    console.log("goto " + group + " " + chart);
+    //console.log("goto " + group + " " + chart);
     if ((thumbs = document.getElementsByClassName('selectedthumb')).length > 0) { thumbs[0].classList.remove('selectedthumb'); }
     if ((thumbnail = document.getElementById(chart)) != null) {
         thumbnail.classList.add('selectedthumb');
@@ -115,7 +115,7 @@ function goto(group, chart) {
 }
 
 function loadImage(group, chart) {
-    console.log("loadImage " + group + " " + chart);
+    //console.log("loadImage " + group + " " + chart);
     if ((container = document.getElementById('lightbox')) != null) {
         var content = "";
         content += "<img src=\"" + CHARTDIR + group + "." + config.images.reduce((a,i) => ((i['id'] == chart)?i['filename']:a), "") + "\"/>\n";
