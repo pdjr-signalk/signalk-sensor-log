@@ -18,7 +18,7 @@ const fs = require('fs');
 const bacon = require('baconjs');
 const Kellycolors = require('./lib/kellycolors');
 const rrdtool = require('./lib/rrdtool');
-const Schema = require('./lib/signalk-schema/Schema.js');
+const Schema = require('./lib/signalk-libschema/Schema.js');
 const utils = require("./lib/utils.js");
 const Log = require("./lib/signalk-liblog/Log.js");
 
